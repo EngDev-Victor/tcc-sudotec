@@ -1,3 +1,28 @@
-node_modules
+# Dependências
+node_modules/
 
+# Variáveis de ambiente (segredos)
 .env
+.env.*
+!.env.example
+
+# Banco local
+*.db
+*.db-journal
+
+# Código gerado pelo Prisma
+src/generated/
+
+# Builds
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
