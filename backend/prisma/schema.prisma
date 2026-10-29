@@ -10,41 +10,50 @@ datasource db {
   provider = "sqlite"
 }
 
+enum StatusMatricula {
+  ATIVA
+  TRANSFERIDA
+  CANCELADA
+  CONCLUIDA
+}
+
 model Aluno {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String   @unique
-  matricula String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int         @id @default(autoincrement())
+  nome       String
+  email      String      @unique
+  matricula  String      @unique
+  matriculas Matricula[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model Professor {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String   @unique
+  id            Int                      @id @default(autoincrement())
+  nome          String
+  email         String                   @unique
   especialidade String
-  alocacoes AlocacaoProfessorTurma[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  alocacoes     AlocacaoProfessorTurma[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 }
 
 model Disciplina {
-  id        Int      @id @default(autoincrement())
-  nome      String
+  id           Int                      @id @default(autoincrement())
+  nome         String
   cargaHoraria Int
-  alocacoes AlocacaoProfessorTurma[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  alocacoes    AlocacaoProfessorTurma[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 }
 
 model Turma {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  anoLetivo Int
-  alocacoes AlocacaoProfessorTurma[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int                      @id @default(autoincrement())
+  nome       String
+  anoLetivo  Int
+  alocacoes  AlocacaoProfessorTurma[]
+  matriculas Matricula[]
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
 }
 
 model AlocacaoProfessorTurma {
@@ -57,4 +66,18 @@ model AlocacaoProfessorTurma {
   disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
 
   @@unique([professorId, turmaId, disciplinaId])
+}
+
+model Matricula {
+  id        Int             @id @default(autoincrement())
+  alunoId   Int
+  aluno     Aluno           @relation(fields: [alunoId], references: [id])
+  turmaId   Int
+  turma     Turma           @relation(fields: [turmaId], references: [id])
+  status    StatusMatricula @default(ATIVA)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([alunoId])
+  @@index([turmaId])
 }
