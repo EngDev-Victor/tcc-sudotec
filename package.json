@@ -1,0 +1,29 @@
+{
+  "name": "skolla",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "back": "npm run dev --workspace=backend",
+    "front": "npm run dev --workspace=frontend",
+    "dev": "concurrently \"npm run back\" \"npm run front\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoaoRodriguesqtw/Skolla.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JoaoRodriguesqtw/Skolla/issues"
+  },
+  "homepage": "https://github.com/JoaoRodriguesqtw/Skolla#readme"
+}
