@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -17,11 +14,33 @@ enum StatusMatricula {
   CONCLUIDA
 }
 
+enum Papel {
+  GESTOR
+  PROFESSOR
+  ALUNO
+  RESPONSAVEL
+}
+
+model Usuario {
+  id        Int        @id @default(autoincrement())
+  nome      String
+  email     String     @unique
+  senhaHash String
+  papel     Papel
+  ativo     Boolean    @default(true)
+  aluno     Aluno?
+  professor Professor?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
 model Aluno {
   id         Int         @id @default(autoincrement())
   nome       String
   email      String      @unique
   matricula  String      @unique
+  usuarioId  Int?        @unique
+  usuario    Usuario?    @relation(fields: [usuarioId], references: [id])
   matriculas Matricula[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -32,6 +51,8 @@ model Professor {
   nome          String
   email         String                   @unique
   especialidade String
+  usuarioId     Int?                     @unique
+  usuario       Usuario?                 @relation(fields: [usuarioId], references: [id])
   alocacoes     AlocacaoProfessorTurma[]
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt

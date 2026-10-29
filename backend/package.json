@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
- "scripts": {
-  "dev": "tsx watch src/index.js",
-  "start": "tsx src/index.js"
-},
+  "scripts": {
+    "dev": "tsx watch src/index.js",
+    "start": "tsx src/index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -19,7 +19,9 @@
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }
