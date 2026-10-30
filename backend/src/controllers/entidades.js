@@ -13,7 +13,8 @@ export const disciplinaController = criarCrudController('disciplina', {
 });
 
 export const turmaController = criarCrudController('turma', {
-  campos: ['nome', 'anoLetivo'],
+  campos: ['nome', 'anoLetivoId'],
+  include: { anoLetivo: true },
 });
 
 export const alocacaoController = criarCrudController('alocacaoProfessorTurma', {

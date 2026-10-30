@@ -7,7 +7,7 @@ const include = { aluno: true, turma: true };
 // Garante que o aluno não tenha outra matrícula ATIVA no mesmo ano letivo
 async function validarMatriculaAtiva(alunoId, turma) {
   const existente = await prisma.matricula.findFirst({
-    where: { alunoId, status: 'ATIVA', turma: { anoLetivo: turma.anoLetivo } },
+    where: { alunoId, status: 'ATIVA', turma: { anoLetivoId: turma.anoLetivoId } },
   });
   if (existente) {
     throw new ErroHttp(409, 'O aluno já possui matrícula ativa neste ano letivo.');

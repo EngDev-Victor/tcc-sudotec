@@ -67,14 +67,29 @@ model Disciplina {
   updatedAt    DateTime                 @updatedAt
 }
 
+model AnoLetivo {
+  id         Int      @id @default(autoincrement())
+  ano        Int      @unique
+  dataInicio DateTime
+  dataFim    DateTime
+  ativo      Boolean  @default(false)
+  turmas     Turma[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+
 model Turma {
-  id         Int                      @id @default(autoincrement())
-  nome       String
-  anoLetivo  Int
-  alocacoes  AlocacaoProfessorTurma[]
-  matriculas Matricula[]
-  createdAt  DateTime                 @default(now())
-  updatedAt  DateTime                 @updatedAt
+  id          Int                      @id @default(autoincrement())
+  nome        String
+  anoLetivoId Int
+  anoLetivo   AnoLetivo                @relation(fields: [anoLetivoId], references: [id])
+  alocacoes   AlocacaoProfessorTurma[]
+  matriculas  Matricula[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@unique([nome, anoLetivoId])
 }
 
 model AlocacaoProfessorTurma {

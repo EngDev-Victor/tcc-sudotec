@@ -4,6 +4,7 @@ import { validaJwt } from '../middlewares/valida-jwt.js';
 import { autorizar } from '../middlewares/autorizar.js';
 import { authController } from '../controllers/auth-controller.js';
 import { usuarioController } from '../controllers/usuario-controller.js';
+import { anoLetivoController } from '../controllers/ano-letivo-controller.js';
 import {
   alunoController,
   professorController,
@@ -42,6 +43,14 @@ router.patch('/usuarios/:id/ativo', h(usuarioController.definirAtivo));
 crud('/alunos', alunoController);
 crud('/professores', professorController);
 crud('/disciplinas', disciplinaController);
+
+router.get('/anos-letivos', h(anoLetivoController.listar));
+router.get('/anos-letivos/:id', h(anoLetivoController.buscarPorId));
+router.post('/anos-letivos', h(anoLetivoController.criar));
+router.put('/anos-letivos/:id', h(anoLetivoController.atualizar));
+router.delete('/anos-letivos/:id', h(anoLetivoController.remover));
+router.patch('/anos-letivos/:id/ativar', h(anoLetivoController.ativar));
+
 crud('/turmas', turmaController);
 crud('/alocacoes', alocacaoController);
 
