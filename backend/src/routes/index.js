@@ -5,6 +5,7 @@ import { autorizar } from '../middlewares/autorizar.js';
 import { authController } from '../controllers/auth-controller.js';
 import { usuarioController } from '../controllers/usuario-controller.js';
 import { anoLetivoController } from '../controllers/ano-letivo-controller.js';
+import { dashboardController } from '../controllers/dashboard-controller.js';
 import {
   alunoController,
   professorController,
@@ -35,6 +36,7 @@ router.get('/auth/me', h(authController.me));
 
 // A partir daqui, apenas GESTOR (por enquanto o único módulo implementado)
 router.use(autorizar('GESTOR'));
+router.get('/dashboard/gestor', h(dashboardController.gestor));
 
 router.get('/usuarios', h(usuarioController.listar));
 router.post('/usuarios', h(usuarioController.criar));
