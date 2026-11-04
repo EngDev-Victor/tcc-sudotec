@@ -9,7 +9,7 @@ function lerId(valor) {
   return id;
 }
 
-export function criarCrudController(modelo, { campos, include }) {
+export function criarCrudController(modelo, { campos, include, filtros = [] }) {
   const delegate = prisma[modelo];
 
   const filtrar = (body) =>
@@ -19,7 +19,14 @@ export function criarCrudController(modelo, { campos, include }) {
 
   return {
     async listar(req, res) {
-      const itens = await delegate.findMany({ include, orderBy: { id: 'asc' } });
+      // Filtros opcionais por query string (ex.: ?turmaId=1), só para campos liberados
+      const where = {};
+      for (const campo of filtros) {
+        if (req.query[campo] !== undefined) {
+          where[campo] = lerId(req.query[campo]);
+        }
+      }
+      const itens = await delegate.findMany({ where, include, orderBy: { id: 'asc' } });
       return res.json(itens);
     },
 
