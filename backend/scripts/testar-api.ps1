@@ -304,6 +304,59 @@ if ($anoId) {
 Verificar "matricula nao tem DELETE -> 404" ((Req DELETE "/matriculas/1" $null $tk).Status -eq 404)
 
 
+# ---------- J. Regras de matrícula e alocação ----------
+Write-Host "`n== Regras de matrícula e alocação ==" -ForegroundColor Cyan
+
+if ($anoId) {
+  # Aluno inativo, aluno ou turma inexistentes
+  $aj = Req POST "/alunos" (CorpoAluno "j$sfx") $tk
+  Req PATCH "/alunos/$($aj.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+  Verificar "matricular aluno inativo -> 409" ((Req POST "/matriculas" @{ alunoId = $aj.Dados.id; turmaId = $tid } $tk).Status -eq 409)
+  Verificar "matricular aluno inexistente -> 404" ((Req POST "/matriculas" @{ alunoId = 999999; turmaId = $tid } $tk).Status -eq 404)
+  Verificar "matricular em turma inexistente -> 404" ((Req POST "/matriculas" @{ alunoId = $ai.Dados.id; turmaId = 999999 } $tk).Status -eq 404)
+
+  # Cancelar e transferir só valem para matrícula ativa
+  Verificar "cancelar matricula ja cancelada -> 409" ((Req PATCH "/matriculas/$($mi.Dados.id)/cancelar" $null $tk).Status -eq 409)
+  Verificar "cancelar matricula inexistente -> 404" ((Req PATCH "/matriculas/999999/cancelar" $null $tk).Status -eq 404)
+  Verificar "transferir matricula ja transferida -> 409" ((Req POST "/matriculas/$($m1.Dados.id)/transferir" @{ turmaDestinoId = $tid } $tk).Status -eq 409)
+  Verificar "transferir para a mesma turma -> 400" ((Req POST "/matriculas/$($tr.Dados.id)/transferir" @{ turmaDestinoId = $tid2 } $tk).Status -eq 400)
+  Verificar "transferir para turma inexistente -> 404" ((Req POST "/matriculas/$($tr.Dados.id)/transferir" @{ turmaDestinoId = 999999 } $tk).Status -eq 404)
+
+  # Transferência entre anos letivos diferentes é bloqueada
+  $usadosJ = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+  $anoY = 2060
+  while ($usadosJ -contains $anoY) { $anoY++ }
+  $anoYReq = Req POST "/anos-letivos" @{ ano = $anoY; dataInicio = "$anoY-02-01"; dataFim = "$anoY-12-01" } $tk
+  Verificar "criar segundo ano letivo de teste -> 201" ($anoYReq.Status -eq 201)
+  $turmaY = Req POST "/turmas" @{ nome = "y-$sfx"; anoLetivoId = $anoYReq.Dados.id; turno = "MANHA"; sala = "Sala 4" } $tk
+  $ak = Req POST "/alunos" (CorpoAluno "k$sfx") $tk
+  $mk = Req POST "/matriculas" @{ alunoId = $ak.Dados.id; turmaId = $tid } $tk
+  Verificar "transferir para turma de outro ano letivo -> 409" ((Req POST "/matriculas/$($mk.Dados.id)/transferir" @{ turmaDestinoId = $turmaY.Dados.id } $tk).Status -eq 409)
+  $hk = @((Req GET "/matriculas?alunoId=$($ak.Dados.id)" $null $tk).Dados)
+  Verificar "matricula original segue ativa e sem nova matricula" ($hk.Count -eq 1 -and $hk[0].status -eq "ATIVA" -and $hk[0].turmaId -eq $tid)
+  Verificar "limpeza: DELETE turma do ano de teste -> 204" ((Req DELETE "/turmas/$($turmaY.Dados.id)" $null $tk).Status -eq 204)
+  Verificar "limpeza: DELETE ano letivo de teste -> 204" ((Req DELETE "/anos-letivos/$($anoYReq.Dados.id)" $null $tk).Status -eq 204)
+
+  # Só professor ativo recebe alocações
+  $pj = Req POST "/professores" @{ nome = "Prof Ativo $sfx"; email = "pativo$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-1111"; titulacao = "GRADUACAO" } $tk
+  $alj = Req POST "/alocacoes" @{ professorId = $pj.Dados.id; turmaId = $tid; disciplinaId = $disc.Dados.id } $tk
+  Verificar "alocar professor ativo -> 201" ($alj.Status -eq 201)
+
+  Req PATCH "/professores/$($pj.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+  Verificar "alocar professor inativo -> 409" ((Req POST "/alocacoes" @{ professorId = $pj.Dados.id; turmaId = $tid2; disciplinaId = $disc.Dados.id } $tk).Status -eq 409)
+  Verificar "editar alocacao de professor inativo -> 409" ((Req PUT "/alocacoes/$($alj.Dados.id)" @{ turmaId = $tid2 } $tk).Status -eq 409)
+
+  Req PATCH "/professores/$($pj.Dados.id)/ativo" @{ ativo = $true } $tk | Out-Null
+  Verificar "editar alocacao apos reativar o professor -> 200" ((Req PUT "/alocacoes/$($alj.Dados.id)" @{ turmaId = $tid2 } $tk).Status -eq 200)
+
+  # Duplicação via edição
+  $alj2 = Req POST "/alocacoes" @{ professorId = $pj.Dados.id; turmaId = $tid; disciplinaId = $disc.Dados.id } $tk
+  Verificar "criar segunda alocacao -> 201" ($alj2.Status -eq 201)
+  Verificar "editar alocacao para duplicar outra -> 409" ((Req PUT "/alocacoes/$($alj2.Dados.id)" @{ turmaId = $tid2 } $tk).Status -eq 409)
+}
+
+
+
 
 # ---------- Resumo ----------
 Write-Host ""
