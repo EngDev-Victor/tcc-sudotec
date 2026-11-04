@@ -244,6 +244,67 @@ Verificar "professor: /auth/me -> 200" ((Req GET "/auth/me" $null $tp).Status -e
 Verificar "professor: /turmas -> 403" ((Req GET "/turmas" $null $tp).Status -eq 403)
 Verificar "professor: /dashboard/gestor -> 403" ((Req GET "/dashboard/gestor" $null $tp).Status -eq 403)
 
+# ---------- I. Inativação e exclusões ----------
+Write-Host "`n== Inativação e exclusões ==" -ForegroundColor Cyan
+
+# Alunos e professores não são apagados
+$ax = Req POST "/alunos" (CorpoAluno "x$sfx") $tk
+Verificar "criar aluno para teste de exclusao -> 201" ($ax.Status -eq 201)
+Verificar "DELETE aluno -> 405" ((Req DELETE "/alunos/$($ax.Dados.id)" $null $tk).Status -eq 405)
+Verificar "aluno continua existindo apos DELETE" ((Req GET "/alunos/$($ax.Dados.id)" $null $tk).Status -eq 200)
+Verificar "DELETE professor -> 405" ((Req DELETE "/professores/$($pc.Dados.id)" $null $tk).Status -eq 405)
+Verificar "inativar aluno inexistente -> 404" ((Req PATCH "/alunos/999999/ativo" @{ ativo = $false } $tk).Status -eq 404)
+Verificar "inativar com valor invalido -> 400" ((Req PATCH "/alunos/$($ax.Dados.id)/ativo" @{ ativo = "sim" } $tk).Status -eq 400)
+
+if ($anoId) {
+  # Inativar aluno cancela as matrículas ativas e preserva o histórico
+  $ai = Req POST "/alunos" (CorpoAluno "i$sfx") $tk
+  $mi = Req POST "/matriculas" @{ alunoId = $ai.Dados.id; turmaId = $tid } $tk
+  Verificar "matricular aluno para teste de inativacao -> 201" ($mi.Status -eq 201)
+
+  $inat = Req PATCH "/alunos/$($ai.Dados.id)/ativo" @{ ativo = $false } $tk
+  Verificar "inativar aluno -> 200 e ativo=false" ($inat.Status -eq 200 -and $inat.Dados.ativo -eq $false)
+  Verificar "inativar cancela 1 matricula ativa" ($inat.Dados.matriculasCanceladas -eq 1)
+  $hist1 = @((Req GET "/matriculas?alunoId=$($ai.Dados.id)" $null $tk).Dados)
+  Verificar "historico preservado (1 matricula CANCELADA)" ($hist1.Count -eq 1 -and $hist1[0].status -eq "CANCELADA")
+
+  $reat = Req PATCH "/alunos/$($ai.Dados.id)/ativo" @{ ativo = $true } $tk
+  Verificar "reativar aluno -> 200 e ativo=true" ($reat.Status -eq 200 -and $reat.Dados.ativo -eq $true)
+  $hist2 = @((Req GET "/matriculas?alunoId=$($ai.Dados.id)" $null $tk).Dados)
+  Verificar "reativar nao recria matricula" ($hist2.Count -eq 1 -and $hist2[0].status -eq "CANCELADA")
+
+  # Inativar professor mantém as alocações existentes
+  $pinat = Req PATCH "/professores/$($prof.Dados.id)/ativo" @{ ativo = $false } $tk
+  Verificar "inativar professor -> 200 e ativo=false" ($pinat.Status -eq 200 -and $pinat.Dados.ativo -eq $false)
+  Verificar "alocacoes do professor inativo preservadas" (@((Req GET "/alocacoes?professorId=$($prof.Dados.id)" $null $tk).Dados).Count -eq 1)
+  $preat = Req PATCH "/professores/$($prof.Dados.id)/ativo" @{ ativo = $true } $tk
+  Verificar "reativar professor -> 200 e ativo=true" ($preat.Status -eq 200 -and $preat.Dados.ativo -eq $true)
+
+  # Exclusões que comprometeriam relacionamentos e histórico
+  Verificar "DELETE turma com matriculas -> 409" ((Req DELETE "/turmas/$tid" $null $tk).Status -eq 409)
+  Verificar "DELETE disciplina alocada -> 409" ((Req DELETE "/disciplinas/$($disc.Dados.id)" $null $tk).Status -eq 409)
+  Verificar "DELETE disciplina principal de professor -> 409" ((Req DELETE "/disciplinas/$($dp.Dados.id)" $null $tk).Status -eq 409)
+  Verificar "DELETE ano letivo ativo -> 409" ((Req DELETE "/anos-letivos/$anoId" $null $tk).Status -eq 409)
+
+  # Ano letivo de teste: com turma bloqueia; sem turma, apaga
+  $usados = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+  $anoTeste = 2060
+  while ($usados -contains $anoTeste) { $anoTeste++ }
+  $anoX = Req POST "/anos-letivos" @{ ano = $anoTeste; dataInicio = "$anoTeste-02-01"; dataFim = "$anoTeste-12-01" } $tk
+  Verificar "criar ano letivo de teste -> 201" ($anoX.Status -eq 201)
+  $turmaX = Req POST "/turmas" @{ nome = "ex-$sfx"; anoLetivoId = $anoX.Dados.id; turno = "TARDE"; sala = "Sala 3" } $tk
+  Verificar "DELETE ano letivo com turmas -> 409" ((Req DELETE "/anos-letivos/$($anoX.Dados.id)" $null $tk).Status -eq 409)
+  Verificar "DELETE turma sem vinculos -> 204" ((Req DELETE "/turmas/$($turmaX.Dados.id)" $null $tk).Status -eq 204)
+  Verificar "DELETE ano letivo sem turmas -> 204" ((Req DELETE "/anos-letivos/$($anoX.Dados.id)" $null $tk).Status -eq 204)
+
+  # Alocação pode ser removida (desfazer um engano)
+  Verificar "DELETE alocacao -> 204 (permitido)" ((Req DELETE "/alocacoes/$($al.Dados.id)" $null $tk).Status -eq 204)
+}
+
+Verificar "matricula nao tem DELETE -> 404" ((Req DELETE "/matriculas/1" $null $tk).Status -eq 404)
+
+
+
 # ---------- Resumo ----------
 Write-Host ""
 $cor = "Green"

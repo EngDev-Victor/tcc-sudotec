@@ -8,6 +8,7 @@ import { authController } from '../controllers/auth-controller.js';
 import { usuarioController } from '../controllers/usuario-controller.js';
 import { anoLetivoController } from '../controllers/ano-letivo-controller.js';
 import { dashboardController } from '../controllers/dashboard-controller.js';
+import { inativacaoController } from '../controllers/inativacao-controller.js';
 import {
   alunoController,
   professorController,
@@ -19,12 +20,28 @@ import { matriculaController } from '../controllers/matricula-controller.js';
 
 const router = Router();
 
-function crud(caminho, c, esquema) {
+function crud(caminho, c, esquema, { exclusao = true } = {}) {
   router.get(caminho, h(c.listar));
   router.get(`${caminho}/:id`, h(c.buscarPorId));
   router.post(caminho, validar(esquema.criar), h(c.criar));
   router.put(`${caminho}/:id`, validar(esquema.atualizar), h(c.atualizar));
-  router.delete(`${caminho}/:id`, h(c.remover));
+  if (exclusao) {
+    router.delete(`${caminho}/:id`, h(c.remover));
+  }
+}
+
+// Alunos e professores nunca são apagados: o histórico fica e eles são inativados
+function inativavel(caminho, rotulo, c, esquema, tratarAtivo) {
+  crud(caminho, c, esquema, { exclusao: false });
+  router.patch(`${caminho}/:id/ativo`, validar(esquemas.ativo), h(tratarAtivo));
+  router.delete(`${caminho}/:id`, (req, res) => {
+    res
+      .status(405)
+      .set('Allow', 'GET, POST, PUT, PATCH')
+      .json({
+        error: `${rotulo} não podem ser excluídos. Para desativar, use PATCH ${caminho}/:id/ativo com { "ativo": false }.`,
+      });
+  });
 }
 
 // Pública
@@ -50,8 +67,8 @@ router.put('/anos-letivos/:id', validar(esquemas.anoLetivo.atualizar), h(anoLeti
 router.delete('/anos-letivos/:id', h(anoLetivoController.remover));
 router.patch('/anos-letivos/:id/ativar', h(anoLetivoController.ativar));
 
-crud('/alunos', alunoController, esquemas.aluno);
-crud('/professores', professorController, esquemas.professor);
+inativavel('/alunos', 'Alunos', alunoController, esquemas.aluno, inativacaoController.aluno);
+inativavel('/professores', 'Professores', professorController, esquemas.professor, inativacaoController.professor);
 crud('/disciplinas', disciplinaController, esquemas.disciplina);
 crud('/turmas', turmaController, esquemas.turma);
 crud('/alocacoes', alocacaoController, esquemas.alocacao);

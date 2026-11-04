@@ -12,7 +12,7 @@ function lerId(valor) {
 
 export function criarCrudController(
   modelo,
-  { campos, opcionais = [], include, filtros = [], referencias = {} }
+  { campos, opcionais = [], include, filtros = [], referencias = {}, exclusaoBloqueadaPor = [] }
 ) {
   const delegate = prisma[modelo];
   const permitidos = [...campos, ...opcionais];
@@ -72,8 +72,16 @@ export function criarCrudController(
       return res.json(item);
     },
 
+    // exclusaoBloqueadaPor: [{ modelo, campo, mensagem }] -> 409 se houver registros ligados
     async remover(req, res) {
-      await delegate.delete({ where: { id: lerId(req.params.id) } });
+      const id = lerId(req.params.id);
+      for (const { modelo: modeloRef, campo, mensagem } of exclusaoBloqueadaPor) {
+        const total = await prisma[modeloRef].count({ where: { [campo]: id } });
+        if (total > 0) {
+          throw new ErroHttp(409, mensagem);
+        }
+      }
+      await delegate.delete({ where: { id } });
       return res.status(204).send();
     },
   };

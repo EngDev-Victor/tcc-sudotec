@@ -74,7 +74,20 @@ export const anoLetivoController = {
   },
 
   async remover(req, res) {
-    await prisma.anoLetivo.delete({ where: { id: lerId(req.params.id) } });
+    const id = lerId(req.params.id);
+    const ano = await prisma.anoLetivo.findUniqueOrThrow({
+      where: { id },
+      include: { _count: { select: { turmas: true } } },
+    });
+
+    if (ano.ativo) {
+      throw new ErroHttp(409, 'Não é possível excluir o ano letivo ativo. Ative outro ano antes.');
+    }
+    if (ano._count.turmas > 0) {
+      throw new ErroHttp(409, 'Não é possível excluir o ano letivo: ele possui turmas.');
+    }
+
+    await prisma.anoLetivo.delete({ where: { id } });
     return res.status(204).send();
   },
 

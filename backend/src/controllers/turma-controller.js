@@ -5,6 +5,18 @@ const crudBase = criarCrudController('turma', {
   campos: ['nome', 'anoLetivoId', 'turno', 'sala'],
   include: { anoLetivo: true },
   referencias: { anoLetivoId: ['anoLetivo', 'Ano letivo não encontrado.'] },
+  exclusaoBloqueadaPor: [
+    {
+      modelo: 'matricula',
+      campo: 'turmaId',
+      mensagem: 'Não é possível excluir a turma: ela possui matrículas (o histórico é preservado).',
+    },
+    {
+      modelo: 'alocacaoProfessorTurma',
+      campo: 'turmaId',
+      mensagem: 'Não é possível excluir a turma: ela possui professores alocados. Remova as alocações antes.',
+    },
+  ],
 });
 
 export const turmaController = {

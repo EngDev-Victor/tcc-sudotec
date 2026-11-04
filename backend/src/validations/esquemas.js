@@ -186,6 +186,10 @@ export const esquemas = {
     }),
   },
 
+    ativo: z.object({
+    ativo: z.boolean({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser true ou false.' }),
+  }),
+
   aluno: { criar: alunoBase, atualizar: atualizacao(alunoBase) },
   professor: { criar: professorBase, atualizar: atualizacao(professorBase) },
   disciplina: { criar: disciplinaBase, atualizar: atualizacao(disciplinaBase) },
