@@ -43,6 +43,47 @@ function EstaEm($lista, $id) {
 
 function Painel { return (Req GET "/dashboard/gestor" $null $tk).Dados }
 
+# Gera um CPF válido (9 dígitos aleatórios + 2 dígitos verificadores)
+function NovoCpf {
+  do {
+    $d = @(1..9 | ForEach-Object { Get-Random -Minimum 0 -Maximum 10 })
+  } while (($d | Select-Object -Unique).Count -eq 1)
+  foreach ($n in 10, 11) {
+    $soma = 0
+    for ($i = 0; $i -lt $d.Count; $i++) { $soma += $d[$i] * ($n - $i) }
+    $resto = ($soma * 10) % 11
+    if ($resto -eq 10) { $resto = 0 }
+    $d += $resto
+  }
+  return ($d -join "")
+}
+
+function MascararCpf($c) {
+  return "$($c.Substring(0,3)).$($c.Substring(3,3)).$($c.Substring(6,3))-$($c.Substring(9,2))"
+}
+
+# Aluno válido; sobrescreva campos com $Extra
+function CorpoAluno($Sufixo, $Extra = @{}) {
+  $corpo = @{
+    nome = "Aluno Teste $Sufixo"
+    email = "aluno$Sufixo@teste.com"
+    matricula = "T$Sufixo"
+    cpf = (NovoCpf)
+    dataNascimento = "2012-05-20"
+    nomeResponsavel = "Responsavel Teste"
+    telefone = "(46) 99999-0000"
+  }
+  foreach ($k in $Extra.Keys) { $corpo[$k] = $Extra[$k] }
+  return $corpo
+}
+
+# Junta duas hashtables; os valores de $extra sobrescrevem os de $base
+function Mesclar($base, $extra) {
+  $r = @{} + $base
+  foreach ($k in $extra.Keys) { $r[$k] = $extra[$k] }
+  return $r
+}
+
 # ---------- A. Autenticação ----------
 Write-Host "`n== Autenticação ==" -ForegroundColor Cyan
 $login = Req POST "/auth/login" @{ email = "gestor@skolla.com"; senha = $senha }
@@ -69,7 +110,7 @@ if (-not $p0.anoLetivo) {
 
   # ---------- C. Fluxo com antes/depois no dashboard ----------
   Write-Host "`n== Fluxo: turma, aluno, matricula, professor ==" -ForegroundColor Cyan
-  $t = Req POST "/turmas" @{ nome = "teste-$sfx"; anoLetivoId = $anoId } $tk
+  $t = Req POST "/turmas" @{ nome = "teste-$sfx"; anoLetivoId = $anoId; turno = "MANHA"; sala = "Sala 1" } $tk
   Verificar "criar turma -> 201" ($t.Status -eq 201)
   $tid = $t.Dados.id
 
@@ -78,7 +119,7 @@ if (-not $p0.anoLetivo) {
   Verificar "turma nova aparece sem alunos" (EstaEm $p1.pendencias.turmasSemAlunos $tid)
   Verificar "total de turmas subiu 1" ($p1.totais.turmas -eq ($p0.totais.turmas + 1))
 
-  $a = Req POST "/alunos" @{ nome = "Aluno Teste $sfx"; email = "aluno$sfx@teste.com"; matricula = "T$sfx" } $tk
+  $a = Req POST "/alunos" (CorpoAluno $sfx) $tk
   Verificar "criar aluno -> 201" ($a.Status -eq 201)
   $aid = $a.Dados.id
   $m = Req POST "/matriculas" @{ alunoId = $aid; turmaId = $tid } $tk
@@ -90,7 +131,8 @@ if (-not $p0.anoLetivo) {
   Verificar "turma saiu de 'sem alunos'" (-not (EstaEm $p2.pendencias.turmasSemAlunos $tid))
   Verificar "matriculas ATIVA subiu 1" ($p2.matriculas.ATIVA -eq ($base.ATIVA + 1))
 
-  $prof = Req POST "/professores" @{ nome = "Prof Teste $sfx"; email = "prof$sfx@teste.com"; especialidade = "Teste" } $tk
+  $prof = Req POST "/professores" @{ nome = "Prof Teste $sfx"; email = "prof$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-0000"; titulacao = "GRADUACAO" } $tk
+  Verificar "criar professor -> 201" ($prof.Status -eq 201)
   $disc = Req POST "/disciplinas" @{ nome = "Disc Teste $sfx"; cargaHoraria = 40 } $tk
   $al = Req POST "/alocacoes" @{ professorId = $prof.Dados.id; turmaId = $tid; disciplinaId = $disc.Dados.id } $tk
   Verificar "alocar professor -> 201" ($al.Status -eq 201)
@@ -102,6 +144,7 @@ if (-not $p0.anoLetivo) {
   $det = (Req GET "/turmas/$tid" $null $tk).Dados
   Verificar "detalhe da turma: 1 aluno" (@($det.alunos).Count -eq 1)
   Verificar "detalhe da turma: 1 professor" (@($det.professores).Count -eq 1)
+  Verificar "detalhe da turma: turno e sala" ($det.turno -eq "MANHA" -and $det.sala -eq "Sala 1")
   Verificar "filtro de alocacoes por turma" (@((Req GET "/alocacoes?turmaId=$tid" $null $tk).Dados).Count -eq 1)
 
   # ---------- D. Cancelamento, rematrícula e transferência ----------
@@ -114,7 +157,7 @@ if (-not $p0.anoLetivo) {
   Verificar "matriculas CANCELADA subiu 1" ($p4.matriculas.CANCELADA -eq ($base.CANCELADA + 1))
   Verificar "alunos sem matricula ativa subiu 1" ($p4.pendencias.alunosSemMatriculaAtiva.total -eq ($semMatBase + 1))
 
-  $t2 = Req POST "/turmas" @{ nome = "teste-$sfx-b"; anoLetivoId = $anoId } $tk
+  $t2 = Req POST "/turmas" @{ nome = "teste-$sfx-b"; anoLetivoId = $anoId; turno = "TARDE"; sala = "Sala 2" } $tk
   $tid2 = $t2.Dados.id
   $m1 = Req POST "/matriculas" @{ alunoId = $aid; turmaId = $tid } $tk
   Verificar "rematricular apos cancelamento -> 201" ($m1.Status -eq 201)
@@ -126,17 +169,69 @@ if (-not $p0.anoLetivo) {
   Verificar "historico com 3 matriculas (cancelada, transferida, ativa)" ($hist.Count -eq 3)
 }
 
-# ---------- E. Validações ----------
-Write-Host "`n== Validações ==" -ForegroundColor Cyan
-Verificar "turma sem ano -> 400" ((Req POST "/turmas" @{ nome = "x" } $tk).Status -eq 400)
+# ---------- E. Validações gerais ----------
+Write-Host "`n== Validações gerais ==" -ForegroundColor Cyan
+Verificar "turma sem ano -> 400" ((Req POST "/turmas" @{ nome = "x"; turno = "MANHA"; sala = "S1" } $tk).Status -eq 400)
 Verificar "id invalido -> 400" ((Req GET "/turmas/abc" $null $tk).Status -eq 400)
 Verificar "turma inexistente -> 404" ((Req GET "/turmas/999999" $null $tk).Status -eq 404)
 Verificar "ano com datas invertidas -> 400" ((Req POST "/anos-letivos" @{ ano = 2099; dataInicio = "2099-12-01"; dataFim = "2099-02-01" } $tk).Status -eq 400)
-Verificar "aluno com e-mail invalido -> 400" ((Req POST "/alunos" @{ nome = "Beto"; email = "sem-arroba"; matricula = "X1" } $tk).Status -eq 400)
 Verificar "disciplina com carga negativa -> 400" ((Req POST "/disciplinas" @{ nome = "Fisica"; cargaHoraria = -5 } $tk).Status -eq 400)
-Verificar "turma com ano inexistente -> 404" ((Req POST "/turmas" @{ nome = "9Z"; anoLetivoId = 999999 } $tk).Status -eq 404)
+Verificar "turma com ano inexistente -> 404" ((Req POST "/turmas" @{ nome = "9Z"; anoLetivoId = 999999; turno = "MANHA"; sala = "S1" } $tk).Status -eq 404)
 
-# ---------- F. RBAC ----------
+# ---------- F. Alunos: campos novos ----------
+Write-Host "`n== Alunos: campos novos ==" -ForegroundColor Cyan
+Verificar "aluno com e-mail invalido -> 400" ((Req POST "/alunos" (CorpoAluno "e$sfx" @{ email = "sem-arroba" }) $tk).Status -eq 400)
+
+$semCpf = CorpoAluno "s$sfx"
+$semCpf.Remove("cpf")
+Verificar "aluno sem CPF -> 400" ((Req POST "/alunos" $semCpf $tk).Status -eq 400)
+Verificar "aluno com CPF invalido (digitos repetidos) -> 400" ((Req POST "/alunos" (CorpoAluno "c1$sfx" @{ cpf = "11111111111" }) $tk).Status -eq 400)
+Verificar "aluno com CPF de digito verificador errado -> 400" ((Req POST "/alunos" (CorpoAluno "c2$sfx" @{ cpf = "52998224726" }) $tk).Status -eq 400)
+Verificar "aluno com data de nascimento futura -> 400" ((Req POST "/alunos" (CorpoAluno "d1$sfx" @{ dataNascimento = "2999-01-01" }) $tk).Status -eq 400)
+Verificar "aluno com data inexistente (30/02) -> 400" ((Req POST "/alunos" (CorpoAluno "d2$sfx" @{ dataNascimento = "2015-02-30" }) $tk).Status -eq 400)
+Verificar "aluno com telefone invalido -> 400" ((Req POST "/alunos" (CorpoAluno "t1$sfx" @{ telefone = "123" }) $tk).Status -eq 400)
+Verificar "aluno sem nome do responsavel -> 400" ((Req POST "/alunos" (CorpoAluno "r1$sfx" @{ nomeResponsavel = "  " }) $tk).Status -eq 400)
+
+$cpfMask = MascararCpf (NovoCpf)
+$cpfSoDigitos = $cpfMask -replace '\D', ''
+$ae = Req POST "/alunos" (CorpoAluno "m$sfx" @{ cpf = $cpfMask }) $tk
+Verificar "aluno com CPF mascarado -> 201" ($ae.Status -eq 201)
+Verificar "CPF guardado so com digitos" ($ae.Dados.cpf -eq $cpfSoDigitos)
+Verificar "telefone guardado so com digitos" ($ae.Dados.telefone -eq "46999990000")
+Verificar "aluno nasce ativo" ($ae.Dados.ativo -eq $true)
+Verificar "data de nascimento devolvida" ($ae.Dados.dataNascimento -like "2012-05-20*")
+
+Verificar "aluno com CPF duplicado -> 409" ((Req POST "/alunos" (CorpoAluno "dup$sfx" @{ cpf = $cpfSoDigitos }) $tk).Status -eq 409)
+
+$up = Req PUT "/alunos/$($ae.Dados.id)" @{ telefone = "(46) 98888-7777" } $tk
+Verificar "atualizar so o telefone -> 200 e normalizado" ($up.Status -eq 200 -and $up.Dados.telefone -eq "46988887777")
+Verificar "campo ativo nao e alteravel via PUT -> 400" ((Req PUT "/alunos/$($ae.Dados.id)" @{ ativo = $false } $tk).Status -eq 400)
+
+# ---------- G. Professores e turmas: campos novos ----------
+Write-Host "`n== Professores e turmas: campos novos ==" -ForegroundColor Cyan
+$dp = Req POST "/disciplinas" @{ nome = "DiscPrincipal $sfx"; cargaHoraria = 30 } $tk
+$corpoProf = @{ nome = "Prof Campos $sfx"; email = "profcampos$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 99888-7766"; titulacao = "MESTRADO" }
+
+Verificar "professor com titulacao invalida -> 400" ((Req POST "/professores" (Mesclar $corpoProf @{ email = "t$sfx@teste.com"; titulacao = "PHD" }) $tk).Status -eq 400)
+Verificar "professor com telefone invalido -> 400" ((Req POST "/professores" (Mesclar $corpoProf @{ email = "p$sfx@teste.com"; telefone = "abc" }) $tk).Status -eq 400)
+Verificar "professor com disciplina principal inexistente -> 404" ((Req POST "/professores" (Mesclar $corpoProf @{ email = "q$sfx@teste.com"; disciplinaPrincipalId = 999999 }) $tk).Status -eq 404)
+
+$pc = Req POST "/professores" (Mesclar $corpoProf @{ disciplinaPrincipalId = $dp.Dados.id }) $tk
+Verificar "professor com disciplina principal -> 201" ($pc.Status -eq 201)
+Verificar "professor devolve a disciplina principal" ($pc.Dados.disciplinaPrincipal.id -eq $dp.Dados.id)
+Verificar "professor nasce ativo" ($pc.Dados.ativo -eq $true)
+
+$semDisc = Req POST "/professores" (Mesclar $corpoProf @{ email = "sd$sfx@teste.com" }) $tk
+Verificar "professor sem disciplina principal -> 201 (opcional)" ($semDisc.Status -eq 201)
+
+if ($anoId) {
+  Verificar "turma com turno invalido -> 400" ((Req POST "/turmas" @{ nome = "tv$sfx"; anoLetivoId = $anoId; turno = "NOITE"; sala = "S1" } $tk).Status -eq 400)
+  Verificar "turma sem sala -> 400" ((Req POST "/turmas" @{ nome = "ts$sfx"; anoLetivoId = $anoId; turno = "MANHA" } $tk).Status -eq 400)
+  $tu = Req PUT "/turmas/$tid" @{ sala = "Sala 9" } $tk
+  Verificar "atualizar so a sala -> 200" ($tu.Status -eq 200 -and $tu.Dados.sala -eq "Sala 9")
+}
+
+# ---------- H. RBAC ----------
 Write-Host "`n== Controle de acesso (RBAC) ==" -ForegroundColor Cyan
 $emailProf = "prof-rbac$sfx@teste.com"
 $u = Req POST "/usuarios" @{ nome = "Prof RBAC"; email = $emailProf; senha = "senha12345"; papel = "PROFESSOR" } $tk

@@ -21,6 +21,18 @@ enum Papel {
   RESPONSAVEL
 }
 
+enum Turno {
+  MANHA
+  TARDE
+}
+
+enum Titulacao {
+  GRADUACAO
+  ESPECIALIZACAO
+  MESTRADO
+  DOUTORADO
+}
+
 model Usuario {
   id        Int        @id @default(autoincrement())
   nome      String
@@ -34,39 +46,6 @@ model Usuario {
   updatedAt DateTime   @updatedAt
 }
 
-model Aluno {
-  id         Int         @id @default(autoincrement())
-  nome       String
-  email      String      @unique
-  matricula  String      @unique
-  usuarioId  Int?        @unique
-  usuario    Usuario?    @relation(fields: [usuarioId], references: [id])
-  matriculas Matricula[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-}
-
-model Professor {
-  id            Int                      @id @default(autoincrement())
-  nome          String
-  email         String                   @unique
-  especialidade String
-  usuarioId     Int?                     @unique
-  usuario       Usuario?                 @relation(fields: [usuarioId], references: [id])
-  alocacoes     AlocacaoProfessorTurma[]
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-}
-
-model Disciplina {
-  id           Int                      @id @default(autoincrement())
-  nome         String
-  cargaHoraria Int
-  alocacoes    AlocacaoProfessorTurma[]
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-}
-
 model AnoLetivo {
   id         Int      @id @default(autoincrement())
   ano        Int      @unique
@@ -78,10 +57,55 @@ model AnoLetivo {
   updatedAt  DateTime @updatedAt
 }
 
+model Aluno {
+  id              Int         @id @default(autoincrement())
+  nome            String
+  email           String      @unique
+  matricula       String      @unique
+  cpf             String      @unique
+  dataNascimento  DateTime
+  nomeResponsavel String
+  telefone        String
+  ativo           Boolean     @default(true)
+  usuarioId       Int?        @unique
+  usuario         Usuario?    @relation(fields: [usuarioId], references: [id])
+  matriculas      Matricula[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Professor {
+  id                    Int                      @id @default(autoincrement())
+  nome                  String
+  email                 String                   @unique
+  especialidade         String
+  telefone              String
+  titulacao             Titulacao
+  ativo                 Boolean                  @default(true)
+  disciplinaPrincipalId Int?
+  disciplinaPrincipal   Disciplina?              @relation("DisciplinaPrincipal", fields: [disciplinaPrincipalId], references: [id])
+  usuarioId             Int?                     @unique
+  usuario               Usuario?                 @relation(fields: [usuarioId], references: [id])
+  alocacoes             AlocacaoProfessorTurma[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+}
+
+model Disciplina {
+  id                    Int                      @id @default(autoincrement())
+  nome                  String
+  cargaHoraria          Int
+  alocacoes             AlocacaoProfessorTurma[]
+  professoresPrincipais Professor[]              @relation("DisciplinaPrincipal")
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+}
 
 model Turma {
   id          Int                      @id @default(autoincrement())
   nome        String
+  turno       Turno
+  sala        String
   anoLetivoId Int
   anoLetivo   AnoLetivo                @relation(fields: [anoLetivoId], references: [id])
   alocacoes   AlocacaoProfessorTurma[]

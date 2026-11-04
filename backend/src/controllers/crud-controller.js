@@ -12,19 +12,20 @@ function lerId(valor) {
 
 export function criarCrudController(
   modelo,
-  { campos, include, filtros = [], referencias = {} }
+  { campos, opcionais = [], include, filtros = [], referencias = {} }
 ) {
   const delegate = prisma[modelo];
+  const permitidos = [...campos, ...opcionais];
 
   const filtrar = (body) =>
     Object.fromEntries(
-      campos.filter((c) => body[c] !== undefined).map((c) => [c, body[c]])
+      permitidos.filter((c) => body[c] !== undefined).map((c) => [c, body[c]])
     );
 
   // referencias: { campo: ['modeloPrisma', 'Mensagem se não existir.'] }
   async function validarReferencias(body) {
     for (const [campo, [modeloRef, mensagem]] of Object.entries(referencias)) {
-      if (body[campo] !== undefined) {
+      if (body[campo] !== undefined && body[campo] !== null) {
         await exigirExistencia(modeloRef, body[campo], mensagem);
       }
     }
@@ -57,7 +58,7 @@ export function criarCrudController(
         throw new ErroHttp(400, `Campos obrigatórios: ${faltando.join(', ')}.`);
       }
       await validarReferencias(req.body);
-      const item = await delegate.create({ data: filtrar(req.body) });
+      const item = await delegate.create({ data: filtrar(req.body), include });
       return res.status(201).json(item);
     },
 
@@ -66,6 +67,7 @@ export function criarCrudController(
       const item = await delegate.update({
         where: { id: lerId(req.params.id) },
         data: filtrar(req.body),
+        include,
       });
       return res.json(item);
     },

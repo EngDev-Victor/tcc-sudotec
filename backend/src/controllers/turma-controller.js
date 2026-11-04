@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { criarCrudController, lerId } from './crud-controller.js';
 
 const crudBase = criarCrudController('turma', {
-  campos: ['nome', 'anoLetivoId'],
+  campos: ['nome', 'anoLetivoId', 'turno', 'sala'],
   include: { anoLetivo: true },
   referencias: { anoLetivoId: ['anoLetivo', 'Ano letivo não encontrado.'] },
 });
