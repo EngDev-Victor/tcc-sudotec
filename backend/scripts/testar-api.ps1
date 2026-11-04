@@ -355,6 +355,63 @@ if ($anoId) {
   Verificar "editar alocacao para duplicar outra -> 409" ((Req PUT "/alocacoes/$($alj2.Dados.id)" @{ turmaId = $tid2 } $tk).Status -eq 409)
 }
 
+# ---------- K. Dashboard: ativos, inativos e professores distintos ----------
+Write-Host "`n== Dashboard: ativos, inativos e professores distintos ==" -ForegroundColor Cyan
+
+if ($anoId) {
+  $d0 = Painel
+  Verificar "alunos: total = ativos + inativos" ($d0.alunos.total -eq ($d0.alunos.ativos + $d0.alunos.inativos))
+  Verificar "professores: total = ativos + inativos" ($d0.professores.total -eq ($d0.professores.ativos + $d0.professores.inativos))
+  Verificar "totais coerentes com os blocos de alunos e professores" ($d0.totais.alunos -eq $d0.alunos.total -and $d0.totais.professores -eq $d0.professores.total)
+  Verificar "ha alunos inativos (criados nos testes anteriores)" ($d0.alunos.inativos -ge 1)
+
+  # Turma nova com 2 professores distintos e 3 alocacoes (professor x disciplina)
+  $tdash = Req POST "/turmas" @{ nome = "dash-$sfx"; anoLetivoId = $anoId; turno = "MANHA"; sala = "Sala 5" } $tk
+  $tdId = $tdash.Dados.id
+  $pa = Req POST "/professores" @{ nome = "Prof A $sfx"; email = "pa$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-2222"; titulacao = "GRADUACAO" } $tk
+  $pb = Req POST "/professores" @{ nome = "Prof B $sfx"; email = "pb$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-3333"; titulacao = "GRADUACAO" } $tk
+  Req POST "/alocacoes" @{ professorId = $pa.Dados.id; turmaId = $tdId; disciplinaId = $disc.Dados.id } $tk | Out-Null
+  Req POST "/alocacoes" @{ professorId = $pa.Dados.id; turmaId = $tdId; disciplinaId = $dp.Dados.id } $tk | Out-Null
+  Req POST "/alocacoes" @{ professorId = $pb.Dados.id; turmaId = $tdId; disciplinaId = $disc.Dados.id } $tk | Out-Null
+
+  $d1 = Painel
+  $o1 = @($d1.ocupacaoPorTurma | Where-Object { $_.turmaId -eq $tdId })[0]
+  Verificar "turma: 3 alocacoes (professor x disciplina)" ($o1.alocacoes -eq 3)
+  Verificar "turma: conta 2 professores distintos" ($o1.professores -eq 2)
+  Verificar "turma: 2 professores ativos" ($o1.professoresAtivos -eq 2)
+  Verificar "professores alocados no ano contam distintos (+2)" ($d1.professores.alocadosNoAno -eq ($d0.professores.alocadosNoAno + 2))
+  Verificar "turma com professores nao esta em 'sem professor'" (-not (EstaEm $d1.pendencias.turmasSemProfessor $tdId))
+
+  # Inativar um professor mantém a contagem de distintos; sem nenhum ativo a turma vira pendência
+  Req PATCH "/professores/$($pb.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+  $d2 = Painel
+  $o2 = @($d2.ocupacaoPorTurma | Where-Object { $_.turmaId -eq $tdId })[0]
+  Verificar "inativar professor: turma segue com 2 distintos e 1 ativo" ($o2.professores -eq 2 -and $o2.professoresAtivos -eq 1)
+  Verificar "professores inativos subiu 1" ($d2.professores.inativos -eq ($d0.professores.inativos + 1))
+
+  Req PATCH "/professores/$($pa.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+  $d3 = Painel
+  Verificar "sem professor ativo a turma entra em 'sem professor'" (EstaEm $d3.pendencias.turmasSemProfessor $tdId)
+
+  # Alunos: matriculados no ano e pendências ignoram inativos
+  $am = Req POST "/alunos" (CorpoAluno "dm$sfx") $tk
+  Req POST "/matriculas" @{ alunoId = $am.Dados.id; turmaId = $tdId } $tk | Out-Null
+  $d4 = Painel
+  $o4 = @($d4.ocupacaoPorTurma | Where-Object { $_.turmaId -eq $tdId })[0]
+  Verificar "turma com 1 aluno ativo" ($o4.alunosAtivos -eq 1)
+  Verificar "alunos matriculados no ano subiu 1" ($d4.alunos.matriculadosNoAno -eq ($d0.alunos.matriculadosNoAno + 1))
+
+  $s0 = $d4.pendencias.alunosSemMatriculaAtiva.total
+  $an = Req POST "/alunos" (CorpoAluno "dn$sfx") $tk
+  $s1 = (Painel).pendencias.alunosSemMatriculaAtiva.total
+  Verificar "aluno ativo sem matricula entra nas pendencias" ($s1 -eq ($s0 + 1))
+  Req PATCH "/alunos/$($an.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+  $d5 = Painel
+  Verificar "aluno inativo sai das pendencias" ($d5.pendencias.alunosSemMatriculaAtiva.total -eq $s0)
+  Verificar "alunos inativos subiu 1 e total subiu 1" ($d5.alunos.inativos -eq ($d4.alunos.inativos + 1) -and $d5.alunos.total -eq ($d4.alunos.total + 1))
+}
+
+
 
 
 

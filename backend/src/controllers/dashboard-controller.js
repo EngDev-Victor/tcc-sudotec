@@ -15,42 +15,60 @@ async function resolverAno(anoLetivoId) {
   return prisma.anoLetivo.findFirst({ where: { ativo: true } });
 }
 
+const resumo = (total, ativos) => ({ total, ativos, inativos: total - ativos });
+
 export const dashboardController = {
   async gestor(req, res) {
     const ano = await resolverAno(req.query.anoLetivoId);
 
-    const [alunos, professores, disciplinas] = await Promise.all([
-      prisma.aluno.count(),
-      prisma.professor.count(),
-      prisma.disciplina.count(),
-    ]);
+    const [alunosTotal, alunosAtivos, professoresTotal, professoresAtivos, disciplinas] =
+      await Promise.all([
+        prisma.aluno.count(),
+        prisma.aluno.count({ where: { ativo: true } }),
+        prisma.professor.count(),
+        prisma.professor.count({ where: { ativo: true } }),
+        prisma.disciplina.count(),
+      ]);
+
+    const alunos = resumo(alunosTotal, alunosAtivos);
+    const professores = resumo(professoresTotal, professoresAtivos);
 
     // Sem ano letivo ativo não há recorte para os demais indicadores
     if (!ano) {
       return res.json({
         anoLetivo: null,
         aviso: 'Nenhum ano letivo ativo. Ative um ano letivo ou informe ?anoLetivoId=.',
-        totais: { alunos, professores, disciplinas, turmas: 0 },
+        totais: { alunos: alunosTotal, professores: professoresTotal, disciplinas, turmas: 0 },
+        alunos,
+        professores,
       });
     }
 
     const filtroAno = { anoLetivoId: ano.id };
+
+    // Só alunos ativos entram como pendência
     const alunosSemMatricula = {
+      ativo: true,
       matriculas: { none: { status: 'ATIVA', turma: filtroAno } },
     };
 
-    const [turmas, porStatus, semMatriculaTotal, semMatriculaItens] = await Promise.all([
+    const [
+      turmas,
+      porStatus,
+      alocacoes,
+      matriculadosNoAno,
+      professoresAlocados,
+      semMatriculaTotal,
+      semMatriculaItens,
+    ] = await Promise.all([
       prisma.turma.findMany({
         where: filtroAno,
         select: {
           id: true,
           nome: true,
-          _count: {
-            select: {
-              matriculas: { where: { status: 'ATIVA' } },
-              alocacoes: true,
-            },
-          },
+          turno: true,
+          sala: true,
+          _count: { select: { matriculas: { where: { status: 'ATIVA' } } } },
         },
         orderBy: { nome: 'asc' },
       }),
@@ -58,6 +76,16 @@ export const dashboardController = {
         by: ['status'],
         where: { turma: filtroAno },
         _count: { _all: true },
+      }),
+      prisma.alocacaoProfessorTurma.findMany({
+        where: { turma: filtroAno },
+        select: { turmaId: true, professorId: true, professor: { select: { ativo: true } } },
+      }),
+      prisma.aluno.count({
+        where: { matriculas: { some: { status: 'ATIVA', turma: filtroAno } } },
+      }),
+      prisma.professor.count({
+        where: { alocacoes: { some: { turma: filtroAno } } },
       }),
       prisma.aluno.count({ where: alunosSemMatricula }),
       prisma.aluno.findMany({
@@ -73,12 +101,33 @@ export const dashboardController = {
       matriculas[linha.status] = linha._count._all;
     }
 
-    const ocupacaoPorTurma = turmas.map((t) => ({
-      turmaId: t.id,
-      nome: t.nome,
-      alunosAtivos: t._count.matriculas,
-      alocacoes: t._count.alocacoes,
-    }));
+    // Uma alocação é um par professor + disciplina; aqui contamos também os professores distintos
+    const porTurma = new Map();
+    for (const a of alocacoes) {
+      const atual = porTurma.get(a.turmaId) ?? {
+        alocacoes: 0,
+        professores: new Set(),
+        ativos: new Set(),
+      };
+      atual.alocacoes += 1;
+      atual.professores.add(a.professorId);
+      if (a.professor.ativo) atual.ativos.add(a.professorId);
+      porTurma.set(a.turmaId, atual);
+    }
+
+    const ocupacaoPorTurma = turmas.map((t) => {
+      const dados = porTurma.get(t.id);
+      return {
+        turmaId: t.id,
+        nome: t.nome,
+        turno: t.turno,
+        sala: t.sala,
+        alunosAtivos: t._count.matriculas,
+        professores: dados ? dados.professores.size : 0,
+        professoresAtivos: dados ? dados.ativos.size : 0,
+        alocacoes: dados ? dados.alocacoes : 0,
+      };
+    });
 
     return res.json({
       anoLetivo: {
@@ -88,12 +137,19 @@ export const dashboardController = {
         dataInicio: ano.dataInicio,
         dataFim: ano.dataFim,
       },
-      totais: { alunos, professores, disciplinas, turmas: turmas.length },
+      totais: {
+        alunos: alunosTotal,
+        professores: professoresTotal,
+        disciplinas,
+        turmas: turmas.length,
+      },
+      alunos: { ...alunos, matriculadosNoAno },
+      professores: { ...professores, alocadosNoAno: professoresAlocados },
       matriculas,
       ocupacaoPorTurma,
       pendencias: {
         turmasSemProfessor: ocupacaoPorTurma
-          .filter((t) => t.alocacoes === 0)
+          .filter((t) => t.professoresAtivos === 0)
           .map((t) => ({ id: t.turmaId, nome: t.nome })),
         turmasSemAlunos: ocupacaoPorTurma
           .filter((t) => t.alunosAtivos === 0)
