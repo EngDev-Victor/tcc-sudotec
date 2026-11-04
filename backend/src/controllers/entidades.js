@@ -1,15 +1,7 @@
 import { criarCrudController } from './crud-controller.js';
 
-export const alunoController = criarCrudController('aluno', {
-  campos: ['nome', 'email', 'matricula', 'cpf', 'dataNascimento', 'nomeResponsavel', 'telefone'],
-});
-
-export const professorController = criarCrudController('professor', {
-  campos: ['nome', 'email', 'especialidade', 'telefone', 'titulacao'],
-  opcionais: ['disciplinaPrincipalId'],
-  include: { disciplinaPrincipal: true },
-  referencias: { disciplinaPrincipalId: ['disciplina', 'Disciplina não encontrada.'] },
-});
+export { alunoController } from './aluno-controller.js';
+export { professorController } from './professor-controller.js';
 
 export const disciplinaController = criarCrudController('disciplina', {
   campos: ['nome', 'cargaHoraria'],

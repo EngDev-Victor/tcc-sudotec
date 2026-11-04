@@ -4,6 +4,7 @@ import { criarCrudController, lerId } from './crud-controller.js';
 const crudBase = criarCrudController('turma', {
   campos: ['nome', 'anoLetivoId', 'turno', 'sala'],
   include: { anoLetivo: true },
+   filtros: ['anoLetivoId'],
   referencias: { anoLetivoId: ['anoLetivo', 'Ano letivo não encontrado.'] },
   exclusaoBloqueadaPor: [
     {

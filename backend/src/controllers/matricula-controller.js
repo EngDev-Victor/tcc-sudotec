@@ -1,6 +1,10 @@
 import { prisma } from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erro-http.js';
 import { lerId } from './crud-controller.js';
+import { lerPaginacao, montarResposta } from '../lib/paginacao.js';
+import { lerIdQuery } from '../lib/consulta.js';
+
+const STATUS_VALIDOS = ['ATIVA', 'TRANSFERIDA', 'CANCELADA', 'CONCLUIDA'];
 
 const include = { aluno: true, turma: true };
 
@@ -17,17 +21,33 @@ async function exigirSemMatriculaAtivaNoAno(tx, alunoId, anoLetivoId) {
 
 export const matriculaController = {
   async listar(req, res) {
-    const { alunoId, turmaId, status } = req.query;
-    const matriculas = await prisma.matricula.findMany({
-      where: {
-        alunoId: alunoId ? lerId(alunoId) : undefined,
-        turmaId: turmaId ? lerId(turmaId) : undefined,
-        status: status || undefined,
-      },
-      include,
-      orderBy: { id: 'asc' },
-    });
-    return res.json(matriculas);
+    const paginacao = lerPaginacao(req.query);
+
+    const { status } = req.query;
+    if (status !== undefined && !STATUS_VALIDOS.includes(status)) {
+      throw new ErroHttp(400, `Status inválido. Use: ${STATUS_VALIDOS.join(', ')}.`);
+    }
+    const anoLetivoId = lerIdQuery(req.query.anoLetivoId, 'anoLetivoId');
+
+    const where = {
+      alunoId: lerIdQuery(req.query.alunoId, 'alunoId'),
+      turmaId: lerIdQuery(req.query.turmaId, 'turmaId'),
+      status,
+      turma: anoLetivoId !== undefined ? { anoLetivoId } : undefined,
+    };
+
+    const [total, matriculas] = await Promise.all([
+      prisma.matricula.count({ where }),
+      prisma.matricula.findMany({
+        where,
+        include,
+        orderBy: { id: 'asc' },
+        skip: paginacao.pular,
+        take: paginacao.limite,
+      }),
+    ]);
+
+    return res.json(montarResposta(matriculas, paginacao, total));
   },
 
   // Valida e grava na mesma transação
