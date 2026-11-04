@@ -9,6 +9,7 @@ import { usuarioController } from '../controllers/usuario-controller.js';
 import { anoLetivoController } from '../controllers/ano-letivo-controller.js';
 import { dashboardController } from '../controllers/dashboard-controller.js';
 import { inativacaoController } from '../controllers/inativacao-controller.js';
+import { limitarLogin } from '../middlewares/limitar-login.js';
 import {
   alunoController,
   professorController,
@@ -45,7 +46,7 @@ function inativavel(caminho, rotulo, c, esquema, tratarAtivo) {
 }
 
 // Pública
-router.post('/auth/login', validar(esquemas.login), h(authController.login));
+router.post('/auth/login', limitarLogin, validar(esquemas.login), h(authController.login));
 
 // A partir daqui, exige token válido
 router.use(validaJwt);

@@ -244,6 +244,20 @@ Verificar "professor: /auth/me -> 200" ((Req GET "/auth/me" $null $tp).Status -e
 Verificar "professor: /turmas -> 403" ((Req GET "/turmas" $null $tp).Status -eq 403)
 Verificar "professor: /dashboard/gestor -> 403" ((Req GET "/dashboard/gestor" $null $tp).Status -eq 403)
 
+
+
+
+# ---------- H2. JWT conferido no banco (etapa 6.1) ----------
+Write-Host "`n== JWT x estado atual do usuario ==" -ForegroundColor Cyan
+$uid = $u.Dados.id
+Verificar "desativar usuario professor -> 200" ((Req PATCH "/usuarios/$uid/ativo" @{ ativo = $false } $tk).Status -eq 200)
+Verificar "token antigo de usuario desativado -> 401" ((Req GET "/auth/me" $null $tp).Status -eq 401)
+Verificar "login de usuario desativado -> 401" ((Req POST "/auth/login" @{ email = $emailProf; senha = "senha12345" }).Status -eq 401)
+Verificar "reativar usuario professor -> 200" ((Req PATCH "/usuarios/$uid/ativo" @{ ativo = $true } $tk).Status -eq 200)
+Verificar "mesmo token volta a funcionar apos reativar -> 200" ((Req GET "/auth/me" $null $tp).Status -eq 200)
+Verificar "token com assinatura adulterada -> 401" ((Req GET "/auth/me" $null "$($tp)x").Status -eq 401)
+Verificar "token malformado -> 401" ((Req GET "/auth/me" $null "abc.def.ghi").Status -eq 401)
+
 # ---------- I. Inativação e exclusões ----------
 Write-Host "`n== Inativação e exclusões ==" -ForegroundColor Cyan
 
@@ -511,6 +525,131 @@ if ($anoId) {
   Req DELETE "/turmas/$($turmaZ.Dados.id)" $null $tk | Out-Null
   Req DELETE "/anos-letivos/$($anoZr.Dados.id)" $null $tk | Out-Null
 }
+
+# ---------- J. CORS (etapa 6.2) ----------
+Write-Host "`n== CORS ==" -ForegroundColor Cyan
+function ReqCors {
+  param($Metodo, $Caminho, $Origem, $Extra = @{}, $Token = $null)
+  $hd = @{ Origin = $Origem }
+  foreach ($k in $Extra.Keys) { $hd[$k] = $Extra[$k] }
+  if ($Token) { $hd["Authorization"] = "Bearer $Token" }
+  try {
+    $r = Invoke-WebRequest -Method $Metodo -Uri "$Api$Caminho" -Headers $hd -UseBasicParsing
+    return [pscustomobject]@{ Status = [int]$r.StatusCode; Headers = $r.Headers }
+  } catch {
+    return [pscustomobject]@{ Status = 0; Headers = @{} }
+  }
+}
+$frente = "http://localhost:5173"
+$c1 = ReqCors GET "/auth/me" $frente @{} $tk
+Verificar "CORS: origem do front liberada" ($c1.Status -eq 200 -and $c1.Headers["Access-Control-Allow-Origin"] -eq $frente)
+$c2 = ReqCors GET "/auth/me" "http://site-estranho.com" @{} $tk
+Verificar "CORS: outra origem sem liberacao" ($c2.Status -eq 200 -and -not $c2.Headers["Access-Control-Allow-Origin"])
+$c3 = ReqCors OPTIONS "/turmas" $frente @{ "Access-Control-Request-Method" = "POST"; "Access-Control-Request-Headers" = "authorization,content-type" }
+Verificar "CORS: preflight -> 204 sem exigir token" ($c3.Status -eq 204 -and $c3.Headers["Access-Control-Allow-Origin"] -eq $frente)
+Verificar "CORS: preflight libera Authorization" ([string]$c3.Headers["Access-Control-Allow-Headers"] -match "Authorization")
+
+
+# ---------- K. Limite de login (etapa 6.3) ----------
+Write-Host "`n== Limite de tentativas de login ==" -ForegroundColor Cyan
+$emailLim = "limite$sfx@teste.com"
+$uLim = Req POST "/usuarios" @{ nome = "Usuario Limite"; email = $emailLim; senha = "senha12345"; papel = "PROFESSOR" } $tk
+Verificar "criar usuario para teste de limite -> 201" ($uLim.Status -eq 201)
+
+# Uma falha seguida de login certo: o contador volta a zero
+Req POST "/auth/login" @{ email = $emailLim; senha = "errada-000" } | Out-Null
+Req POST "/auth/login" @{ email = $emailLim; senha = "senha12345" } | Out-Null
+
+$falhas = @(1..5 | ForEach-Object { (Req POST "/auth/login" @{ email = $emailLim; senha = "errada-$_" }).Status })
+Verificar "5 senhas erradas seguidas -> todas 401 (login certo zerou o contador)" (@($falhas | Where-Object { $_ -ne 401 }).Count -eq 0)
+Verificar "6a tentativa, mesmo com a senha certa -> 429" ((Req POST "/auth/login" @{ email = $emailLim; senha = "senha12345" }).Status -eq 429)
+Verificar "outro e-mail no mesmo IP continua liberado -> 200" ((Req POST "/auth/login" @{ email = "gestor@skolla.com"; senha = $senha }).Status -eq 200)
+
+
+
+# ---------- L. Rota inexistente (etapa 6.4) ----------
+Write-Host "`n== Rota inexistente ==" -ForegroundColor Cyan
+function ReqBruta {
+  param($Url, $Token = $null)
+  $p = @{ Method = "GET"; Uri = $Url; UseBasicParsing = $true }
+  if ($Token) { $p.Headers = @{ Authorization = "Bearer $Token" } }
+  try {
+    $r = Invoke-WebRequest @p
+    return [pscustomobject]@{ Status = [int]$r.StatusCode; Corpo = $r.Content }
+  } catch {
+    $s = 0
+    if ($_.Exception.Response) { $s = [int]$_.Exception.Response.StatusCode }
+    return [pscustomobject]@{ Status = $s; Corpo = $_.ErrorDetails.Message }
+  }
+}
+function TemErroJson($texto) {
+  try { return [bool]($texto | ConvertFrom-Json).error } catch { return $false }
+}
+$raiz = $Api -replace '/api$', ''
+
+$n1 = ReqBruta "$Api/rota-que-nao-existe" $tk
+Verificar "gestor: rota inexistente -> 404" ($n1.Status -eq 404)
+Verificar "404 vem em JSON com campo error" (TemErroJson $n1.Corpo)
+Verificar "sem token: rota inexistente continua 401" ((ReqBruta "$Api/rota-que-nao-existe").Status -eq 401)
+Verificar "professor: rota inexistente continua 403" ((ReqBruta "$Api/rota-que-nao-existe" $tp).Status -eq 403)
+$n2 = ReqBruta "$raiz/fora-da-api"
+Verificar "fora de /api: 404 em JSON" ($n2.Status -eq 404 -and (TemErroJson $n2.Corpo))
+
+
+# ---------- M. Duplicidade com campo indicado (etapa 6.5) ----------
+Write-Host "`n== Duplicidade (409 com campo) ==" -ForegroundColor Cyan
+function ReqErro {
+  param($Metodo, $Caminho, $Corpo, $Token)
+  $p = @{
+    Method = $Metodo; Uri = "$Api$Caminho"; UseBasicParsing = $true
+    Headers = @{ Authorization = "Bearer $Token" }
+    ContentType = "application/json; charset=utf-8"
+    Body = [Text.Encoding]::UTF8.GetBytes(($Corpo | ConvertTo-Json -Depth 5))
+  }
+  try {
+    $r = Invoke-WebRequest @p
+    return [pscustomobject]@{ Status = [int]$r.StatusCode; Dados = ($r.Content | ConvertFrom-Json) }
+  } catch {
+    $s = 0; $d = $null
+    if ($_.Exception.Response) { $s = [int]$_.Exception.Response.StatusCode }
+    try { $d = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+    return [pscustomobject]@{ Status = $s; Dados = $d }
+  }
+}
+
+$d1 = ReqErro POST "/alunos" (CorpoAluno "dup2$sfx" @{ cpf = $cpfSoDigitos }) $tk
+Verificar "CPF duplicado -> 409 indicando campo cpf" ($d1.Status -eq 409 -and @($d1.Dados.campos) -contains "cpf")
+Verificar "mensagem de CPF duplicado cita o CPF" ([string]$d1.Dados.error -match "CPF")
+
+$d2 = ReqErro POST "/usuarios" @{ nome = "Dup"; email = $emailProf; senha = "senha12345"; papel = "PROFESSOR" } $tk
+Verificar "e-mail de usuario duplicado -> 409 indicando campo email" ($d2.Status -eq 409 -and @($d2.Dados.campos) -contains "email")
+
+if ($anoId) {
+  $anoAtual = (Req GET "/anos-letivos/$anoId" $null $tk).Dados
+  $d3 = ReqErro POST "/anos-letivos" @{ ano = $anoAtual.ano; dataInicio = "$($anoAtual.ano)-02-01"; dataFim = "$($anoAtual.ano)-12-01" } $tk
+  Verificar "ano letivo duplicado -> 409 indicando campo ano" ($d3.Status -eq 409 -and @($d3.Dados.campos) -contains "ano")
+
+  $d4 = ReqErro POST "/turmas" @{ nome = "teste-$sfx"; anoLetivoId = $anoId; turno = "TARDE"; sala = "Sala 7" } $tk
+  Verificar "turma com mesmo nome no ano -> 409 indicando nome e ano" ($d4.Status -eq 409 -and @($d4.Dados.campos) -contains "nome")
+}
+
+
+
+
+# ---------- N. Tokens assinados: expirado, inexistente, papel forjado (etapa 6.6) ----------
+Write-Host "`n== Tokens assinados (expirado / inexistente / papel forjado) ==" -ForegroundColor Cyan
+function TokenTeste($Sub, $Modo = "valido", $Papel = "GESTOR") {
+  Push-Location (Split-Path $PSScriptRoot -Parent)
+  try { return (node "$PSScriptRoot\gerar-token-teste.js" $Sub $Modo $Papel) } finally { Pop-Location }
+}
+$idGestor = $login.Dados.usuario.id
+
+$tValido = TokenTeste $idGestor "valido"
+Verificar "token gerado pelo teste e valido -> 200 (controle)" ((Req GET "/auth/me" $null $tValido).Status -eq 200)
+Verificar "token expirado -> 401" ((Req GET "/auth/me" $null (TokenTeste $idGestor "expirado")).Status -eq 401)
+Verificar "token de usuario inexistente -> 401" ((Req GET "/auth/me" $null (TokenTeste 999999 "valido")).Status -eq 401)
+$tForjado = TokenTeste $u.Dados.id "valido" "GESTOR"
+Verificar "token dizendo GESTOR para um PROFESSOR -> 403 (papel vem do banco)" ((Req GET "/turmas" $null $tForjado).Status -eq 403)
 
 # ---------- Resumo ----------
 Write-Host ""

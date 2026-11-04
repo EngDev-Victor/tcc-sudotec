@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erro-http.js';
+import { zerarTentativasLogin } from '../middlewares/limitar-login.js'; // 6.3
 
 // Hash falso para comparar mesmo quando o e-mail não existe (evita revelar quais e-mails estão cadastrados pelo tempo de resposta)
 const HASH_FALSO = bcrypt.hashSync('senha-invalida', 10);
@@ -26,6 +27,9 @@ export const authController = {
       subject: String(usuario.id),
       expiresIn: process.env.JWT_EXPIRES_IN || '8h',
     });
+
+    // Login certo: zera as falhas acumuladas deste IP + e-mail
+    await zerarTentativasLogin(req); // 6.3
 
     return res.json({
       token,
