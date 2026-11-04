@@ -18,4 +18,9 @@ export const alocacaoController = criarCrudController('alocacaoProfessorTurma', 
   campos: ['professorId', 'turmaId', 'disciplinaId'],
   include: { professor: true, turma: true, disciplina: true },
   filtros: ['turmaId', 'professorId', 'disciplinaId'],
+  referencias: {
+    professorId: ['professor', 'Professor não encontrado.'],
+    turmaId: ['turma', 'Turma não encontrada.'],
+    disciplinaId: ['disciplina', 'Disciplina não encontrada.'],
+  },
 });

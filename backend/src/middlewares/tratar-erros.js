@@ -1,6 +1,13 @@
 export function tratarErros(error, req, res, next) {
+  // JSON malformado no corpo da requisição
+  if (error.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'JSON inválido no corpo da requisição.' });
+  }
+
   if (error.status) {
-    return res.status(error.status).json({ error: error.message });
+    const corpo = { error: error.message };
+    if (error.detalhes) corpo.detalhes = error.detalhes;
+    return res.status(error.status).json(corpo);
   }
 
   if (error.code === 'P2002') {

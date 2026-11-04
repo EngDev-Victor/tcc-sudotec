@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erro-http.js';
+import { exigirExistencia } from '../lib/existe.js';
 
 function lerId(valor) {
   const id = Number(valor);
@@ -9,13 +10,25 @@ function lerId(valor) {
   return id;
 }
 
-export function criarCrudController(modelo, { campos, include, filtros = [] }) {
+export function criarCrudController(
+  modelo,
+  { campos, include, filtros = [], referencias = {} }
+) {
   const delegate = prisma[modelo];
 
   const filtrar = (body) =>
     Object.fromEntries(
       campos.filter((c) => body[c] !== undefined).map((c) => [c, body[c]])
     );
+
+  // referencias: { campo: ['modeloPrisma', 'Mensagem se não existir.'] }
+  async function validarReferencias(body) {
+    for (const [campo, [modeloRef, mensagem]] of Object.entries(referencias)) {
+      if (body[campo] !== undefined) {
+        await exigirExistencia(modeloRef, body[campo], mensagem);
+      }
+    }
+  }
 
   return {
     async listar(req, res) {
@@ -43,11 +56,13 @@ export function criarCrudController(modelo, { campos, include, filtros = [] }) {
       if (faltando.length) {
         throw new ErroHttp(400, `Campos obrigatórios: ${faltando.join(', ')}.`);
       }
+      await validarReferencias(req.body);
       const item = await delegate.create({ data: filtrar(req.body) });
       return res.status(201).json(item);
     },
 
     async atualizar(req, res) {
+      await validarReferencias(req.body);
       const item = await delegate.update({
         where: { id: lerId(req.params.id) },
         data: filtrar(req.body),
