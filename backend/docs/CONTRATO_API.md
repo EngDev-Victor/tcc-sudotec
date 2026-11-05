@@ -1,6 +1,6 @@
 # SKOLLA — Contrato da API (módulo Gestor)
 
-Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (236 verificações), executado num banco de teste separado com `backend/scripts/testar-com-banco-teste.ps1`: em 05/11/2026, 236 passaram e 0 falharam, com o `dev.db` intacto (SHA-256 igual antes e depois).
+Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (239 verificações), executado num banco de teste separado com `backend/scripts/testar-com-banco-teste.ps1`, que confere que o `dev.db` continua intacto (SHA-256 igual antes e depois).
 
 ---
 
@@ -46,7 +46,8 @@ Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, 
 
 - O corpo é validado antes de chegar ao controller. **Campos desconhecidos são descartados** sem erro.
 - Textos passam por `trim`. E-mails são guardados em minúsculas.
-- Em `PUT` (atualização), todos os campos são opcionais, mas é preciso enviar **pelo menos um**.
+- Em `PUT` (atualização), todos os campos são opcionais, mas é preciso enviar **pelo menos um**. Um campo inválido gera só o erro desse campo.
+- Datas precisam existir no calendário: `2026-02-31` ou `2026-04-31` → `400` `Data inválida.` (29/02 só em ano bissexto).
 - JSON malformado → `400` `{ "error": "JSON inválido no corpo da requisição." }`.
 - Corpo que não é objeto (ex.: uma lista) → `400` com detalhe `"O corpo da requisição deve ser um objeto JSON."`.
 
@@ -770,7 +771,7 @@ Não existe `DELETE /matriculas/:id`: a resposta é `404` de rota inexistente.
 - **Vínculo usuário ↔ aluno/professor**: os campos `usuarioId` existem no banco, mas nenhuma rota os define ainda. Hoje as contas de acesso são independentes dos cadastros.
 - **`CONCLUIDA`**: o status existe, mas nenhuma rota encerra matrículas como concluídas (por exemplo, no fim do ano letivo).
 - **Regra "uma matrícula `ATIVA` por ano" protegida só pela aplicação**: no SQLite, a transação atual garante a regra mesmo com pedidos simultâneos. Na migração para o **PostgreSQL**, é obrigatório reforçá-la no banco: um índice único parcial (aluno + ano letivo onde `status = 'ATIVA'`), o que exige guardar o `anoLetivoId` também na matrícula.
-- **Migrations antigas em banco preenchido**: as migrations de 30/10 e 04/11 adicionam colunas obrigatórias sem valor padrão e falham num banco que já tenha turmas, alunos ou professores criados antes delas. Nenhum banco nesse estado está em uso (o `dev.db` foi recriado com todas as migrations). As migrations já aplicadas **não devem ser editadas**, porque o Prisma detecta a alteração e pede reset. Antes do primeiro deploy, sem dados de produção, avaliar consolidar todas numa única migration inicial.
+- **Migrations**: em 05/11/2026, as 6 migrations do desenvolvimento foram consolidadas numa única migration inicial (`20261105100000_inicial`), conferida contra o `dev.db` (mesma estrutura e mesmos dados). Novas migrations seguem as regras de `docs/MIGRATIONS.md`, que exigem coluna obrigatória nova com valor padrão ou criada em etapas.
 - **Busca e ordenação em memória**: `GET /alunos` e `GET /professores` carregam `id` e `nome` de todos os registros que passam nos filtros, filtram a busca e ordenam em JavaScript, e só então buscam a página. Isso é suficiente para o porte de uma escola. Melhoria futura: levar a busca e a ordenação para o banco.
 - **Listagens sem paginação**: `/usuarios`, `/anos-letivos`, `/disciplinas`, `/turmas` e `/alocacoes` devolvem tudo de uma vez.
 - **Módulos Professor, Aluno e Responsável**: fora do escopo deste MVP. Esses papéis só conseguem usar `/auth/login` e `/auth/me`.
