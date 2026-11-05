@@ -1,6 +1,6 @@
 # SKOLLA — Contrato da API (módulo Gestor)
 
-Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (236 verificações).
+Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (236 verificações), executado num banco de teste separado com `backend/scripts/testar-com-banco-teste.ps1`: em 05/11/2026, 236 passaram e 0 falharam, com o `dev.db` intacto (SHA-256 igual antes e depois).
 
 ---
 
@@ -387,6 +387,19 @@ Mesmos campos, todos opcionais (ao menos um). O período continua validado contr
 
 #### `PATCH /anos-letivos/:id/ativar` → `200` (AnoLetivo)
 Sem corpo. Ativa este ano e desativa todos os outros: **só um ano letivo fica ativo por vez**.
+
+#### Ano letivo encerrado
+
+O encerramento é **manual**: um ano letivo é considerado **encerrado** quando é **anterior ao ano letivo ativo**, ou seja, quando o gestor ativa um ano seguinte. Não existe campo `encerrado`, e o `dataFim` é **apenas informativo**: passar da data de término não encerra o ano sozinho.
+
+Com isso, enquanto o gestor não ativar o próximo ano, o ano atual continua aceitando matrículas e reativações, mesmo depois do `dataFim` (por exemplo, para os acertos de fim de ano).
+
+| Em relação ao ano ativo | Matricular (`POST /matriculas`) | Restaurar na reativação |
+|---|---|---|
+| o próprio ano ativo | permitido | permitido |
+| ano futuro | permitido (rematrícula antecipada) | permitido |
+| ano anterior (encerrado) | `409` | continua `SUSPENSA` |
+| não há ano ativo | `409` | continua `SUSPENSA` |
 
 #### `DELETE /anos-letivos/:id` → `204`
 Erros `409`:

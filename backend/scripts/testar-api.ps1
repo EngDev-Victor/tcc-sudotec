@@ -1,6 +1,12 @@
-param([string]$Api = "http://localhost:3000/api")
+# Uso normal:        .\scripts\testar-api.ps1                     (API na porta 3000, pede a senha)
+# Com banco de teste: .\scripts\testar-com-banco-teste.ps1      (chama este script na porta 3001)
+param(
+  [string]$Api = "http://localhost:3000/api",
+  [string]$SenhaGestor = ""
+)
 
-$senha = Read-Host "Senha do Gestor"
+$senha = $SenhaGestor
+if (-not $senha) { $senha = Read-Host "Senha do Gestor" }
 $sfx = Get-Date -Format "HHmmss"
 $script:passou = 0
 $script:falhou = 0
@@ -88,7 +94,7 @@ function Mesclar($base, $extra) {
 Write-Host "`n== Autenticação ==" -ForegroundColor Cyan
 $login = Req POST "/auth/login" @{ email = "gestor@skolla.com"; senha = $senha }
 Verificar "login do gestor -> 200" ($login.Status -eq 200 -and [bool]$login.Dados.token)
-if ($login.Status -ne 200) { Write-Host "Sem login, abortando." -ForegroundColor Yellow; return }
+if ($login.Status -ne 200) { Write-Host "Sem login, abortando." -ForegroundColor Yellow; exit 1 }
 $tk = $login.Dados.token
 
 Verificar "sem token -> 401" ((Req GET "/turmas").Status -eq 401)
@@ -825,3 +831,7 @@ Write-Host ""
 $cor = "Green"
 if ($script:falhou -gt 0) { $cor = "Red" }
 Write-Host "Resultado: $($script:passou) passaram, $($script:falhou) falharam." -ForegroundColor $cor
+
+# Código de saída: 0 se tudo passou, 1 se algo falhou (usado pelo testar-com-banco-teste.ps1)
+if ($script:falhou -gt 0) { exit 1 }
+exit 0
