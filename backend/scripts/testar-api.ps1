@@ -737,6 +737,30 @@ if ($anoId) {
   Verificar "cancelar matricula ja CANCELADA -> 409" ((Req PATCH "/matriculas/$($mR.Dados.id)/cancelar" $null $tk).Status -eq 409)
 }
 
+# ---------- S. Matricula em ano letivo passado (regra C) ----------
+Write-Host "`n== Matricula em ano letivo passado ==" -ForegroundColor Cyan
+if ($anoId) {
+  $anoAtivoNum = (Req GET "/anos-letivos/$anoId" $null $tk).Dados.ano
+  $usadosS = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+  $anoS = $anoAtivoNum - 1
+  while ($anoS -ge 2000 -and $usadosS -contains $anoS) { $anoS-- }
+  if ($anoS -ge 2000) {
+    $anoSr = Req POST "/anos-letivos" @{ ano = $anoS; dataInicio = "$anoS-02-01"; dataFim = "$anoS-12-01" } $tk
+    $turS = Req POST "/turmas" @{ nome = "passado-$sfx"; anoLetivoId = $anoSr.Dados.id; turno = "MANHA"; sala = "Sala 11" } $tk
+    $alS = Req POST "/alunos" (CorpoAluno "pa$sfx") $tk
+
+    $mS = ReqErro POST "/matriculas" @{ alunoId = $alS.Dados.id; turmaId = $turS.Dados.id } $tk
+    Verificar "matricular em turma de ano passado -> 409" ($mS.Status -eq 409)
+    Verificar "mensagem explica que o ano e anterior ao ativo" ([string]$mS.Dados.error -match 'anterior')
+    $hS = @((Req GET "/matriculas?alunoId=$($alS.Dados.id)" $null $tk).Dados.dados | Where-Object { $_ })
+    Verificar "nenhuma matricula criada no ano passado" ($hS.Count -eq 0)
+
+    # Turma e ano de teste ficam sem vinculos, entao podem ser apagados
+    Req DELETE "/turmas/$($turS.Dados.id)" $null $tk | Out-Null
+    Req DELETE "/anos-letivos/$($anoSr.Dados.id)" $null $tk | Out-Null
+  }
+}
+
 # ---------- Resumo ----------
 Write-Host ""
 $cor = "Green"

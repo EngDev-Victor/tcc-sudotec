@@ -19,6 +19,27 @@ async function exigirSemMatriculaAtivaNoAno(tx, alunoId, anoLetivoId) {
   }
 }
 
+// Só aceita turma do ano letivo ativo ou de um ano futuro (rematrícula antecipada).
+// Anos anteriores ao ativo ficam bloqueados, para evitar matricular no ano errado.
+async function exigirAnoLetivoPermitido(tx, anoLetivoId) {
+  const ano = await tx.anoLetivo.findUnique({
+    where: { id: anoLetivoId },
+    select: { ano: true, ativo: true },
+  });
+  if (ano.ativo) return;
+
+  const ativo = await tx.anoLetivo.findFirst({ where: { ativo: true }, select: { ano: true } });
+  if (!ativo) {
+    throw new ErroHttp(409, 'Nenhum ano letivo está ativo. Ative um ano letivo antes de matricular.');
+  }
+  if (ano.ano < ativo.ano) {
+    throw new ErroHttp(
+      409,
+      `Não é possível matricular em turma de ano letivo anterior ao ano ativo (${ano.ano} é anterior a ${ativo.ano}).`
+    );
+  }
+}
+
 export const matriculaController = {
   async listar(req, res) {
     const paginacao = lerPaginacao(req.query);
@@ -50,7 +71,7 @@ export const matriculaController = {
     return res.json(montarResposta(matriculas, paginacao, total));
   },
 
-  // Valida e grava na mesma transação
+  // Valida e grava na mesma transação (aluno ativo, ano letivo permitido, uma ATIVA por ano)
   async criar(req, res) {
     const { alunoId, turmaId } = req.body;
 
@@ -68,6 +89,7 @@ export const matriculaController = {
       });
       if (!turma) throw new ErroHttp(404, 'Turma não encontrada.');
 
+      await exigirAnoLetivoPermitido(tx, turma.anoLetivoId);
       await exigirSemMatriculaAtivaNoAno(tx, alunoId, turma.anoLetivoId);
 
       return tx.matricula.create({ data: { alunoId, turmaId }, include });
@@ -106,6 +128,7 @@ export const matriculaController = {
           'A turma de destino pertence a outro ano letivo. A transferência só é permitida dentro do mesmo ano letivo.'
         );
       }
+      await exigirAnoLetivoPermitido(tx, destino.anoLetivoId);
 
       // Só encerra se ainda estiver ativa (protege contra duas transferências simultâneas)
       const encerradas = await tx.matricula.updateMany({
@@ -125,8 +148,7 @@ export const matriculaController = {
     return res.status(201).json(nova);
   },
 
-  // Só matrículas ativas podem ser canceladas
-   // Matrículas ATIVA ou SUSPENSA podem ser canceladas
+  // Matrículas ATIVA ou SUSPENSA podem ser canceladas
   async cancelar(req, res) {
     const id = lerId(req.params.id);
 
