@@ -96,6 +96,7 @@ model Disciplina {
   id                    Int                      @id @default(autoincrement())
   nome                  String
   cargaHoraria          Int
+  ativo                 Boolean                  @default(true)
   alocacoes             AlocacaoProfessorTurma[]
   professoresPrincipais Professor[]              @relation("DisciplinaPrincipal")
   createdAt             DateTime                 @default(now())

@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma.js';
+import { ErroHttp } from '../lib/erro-http.js';
 import { lerPaginacao } from '../lib/paginacao.js';
 import { lerBusca, lerBooleano, lerIdQuery, listarPaginado } from '../lib/consulta.js';
-import { criarCrudController } from './crud-controller.js';
+import { criarCrudController, lerId } from './crud-controller.js';
 
 const include = { disciplinaPrincipal: true };
 
@@ -11,6 +12,20 @@ const base = criarCrudController('professor', {
   include,
   referencias: { disciplinaPrincipalId: ['disciplina', 'Disciplina não encontrada.'] },
 });
+
+// Disciplina inativa não pode ser definida como disciplina principal
+// (null remove a disciplina principal e é sempre aceito)
+async function exigirDisciplinaPrincipalAtiva(disciplinaPrincipalId) {
+  if (disciplinaPrincipalId === undefined || disciplinaPrincipalId === null) return;
+  const disciplina = await prisma.disciplina.findUnique({
+    where: { id: disciplinaPrincipalId },
+    select: { ativo: true },
+  });
+  if (!disciplina) throw new ErroHttp(404, 'Disciplina não encontrada.');
+  if (!disciplina.ativo) {
+    throw new ErroHttp(409, 'Disciplina inativa não pode ser definida como disciplina principal.');
+  }
+}
 
 export const professorController = {
   ...base,
@@ -42,5 +57,24 @@ export const professorController = {
       paginacao,
     });
     return res.json(resposta);
+  },
+
+  async criar(req, res) {
+    await exigirDisciplinaPrincipalAtiva(req.body.disciplinaPrincipalId);
+    return base.criar(req, res);
+  },
+
+  // Só confere quando a disciplina principal muda: reenviar a atual (mesmo que tenha sido
+  // inativada depois) não bloqueia a edição dos outros campos
+  async atualizar(req, res) {
+    const nova = req.body.disciplinaPrincipalId;
+    if (nova !== undefined && nova !== null) {
+      const atual = await prisma.professor.findUniqueOrThrow({
+        where: { id: lerId(req.params.id) },
+        select: { disciplinaPrincipalId: true },
+      });
+      if (atual.disciplinaPrincipalId !== nova) await exigirDisciplinaPrincipalAtiva(nova);
+    }
+    return base.atualizar(req, res);
   },
 };

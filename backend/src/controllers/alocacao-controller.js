@@ -27,6 +27,17 @@ async function exigirProfessorAtivo(professorId) {
   }
 }
 
+async function exigirDisciplinaAtiva(disciplinaId) {
+  const disciplina = await prisma.disciplina.findUnique({
+    where: { id: disciplinaId },
+    select: { ativo: true },
+  });
+  if (!disciplina) throw new ErroHttp(404, 'Disciplina não encontrada.');
+  if (!disciplina.ativo) {
+    throw new ErroHttp(409, 'Disciplina inativa não pode receber novas alocações.');
+  }
+}
+
 export const alocacaoController = {
   ...base,
 
@@ -53,17 +64,19 @@ export const alocacaoController = {
 
   async criar(req, res) {
     await exigirProfessorAtivo(req.body.professorId);
+    await exigirDisciplinaAtiva(req.body.disciplinaId);
     return base.criar(req, res);
   },
 
-  // Editar uma alocação também conta como alocar: vale o professor informado
-  // ou, se não vier, o professor atual da alocação
+  // Editar uma alocação também conta como alocar: valem o professor e a disciplina
+  // informados ou, se não vierem, os atuais da alocação
   async atualizar(req, res) {
     const atual = await prisma.alocacaoProfessorTurma.findUniqueOrThrow({
       where: { id: lerId(req.params.id) },
-      select: { professorId: true },
+      select: { professorId: true, disciplinaId: true },
     });
     await exigirProfessorAtivo(req.body.professorId ?? atual.professorId);
+    await exigirDisciplinaAtiva(req.body.disciplinaId ?? atual.disciplinaId);
     return base.atualizar(req, res);
   },
 };

@@ -71,6 +71,7 @@ router.patch('/anos-letivos/:id/ativar', h(anoLetivoController.ativar));
 inativavel('/alunos', 'Alunos', alunoController, esquemas.aluno, inativacaoController.aluno);
 inativavel('/professores', 'Professores', professorController, esquemas.professor, inativacaoController.professor);
 crud('/disciplinas', disciplinaController, esquemas.disciplina);
+router.patch('/disciplinas/:id/ativo', validar(esquemas.ativo), h(disciplinaController.definirAtivo));
 crud('/turmas', turmaController, esquemas.turma);
 crud('/alocacoes', alocacaoController, esquemas.alocacao);
 

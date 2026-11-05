@@ -1,13 +1,17 @@
 import { prisma } from '../lib/prisma.js';
 import { lerId } from './crud-controller.js';
 
-const MOTIVO_ANO_INATIVO = 'O ano letivo da turma não está ativo.';
+const MOTIVO_SEM_ANO_ATIVO = 'Nenhum ano letivo está ativo.';
+const MOTIVO_ANO_ANTERIOR = 'O ano letivo da turma é anterior ao ano letivo ativo.';
 const MOTIVO_CONFLITO = 'O aluno já possui matrícula ativa neste ano letivo.';
 
 // Reativar: tenta devolver cada matrícula SUSPENSA para ATIVA, da mais recente para a mais antiga.
-// Só restaura se o ano letivo da turma estiver ativo e o aluno não tiver outra ATIVA no mesmo ano.
-// As que não puderem voltar continuam SUSPENSA, com o motivo na resposta.
+// Segue a mesma regra da matrícula: só volta se o ano letivo da turma for o ativo ou um ano futuro,
+// e se o aluno não tiver outra ATIVA no mesmo ano. As que não puderem voltar continuam SUSPENSA,
+// com o motivo na resposta. (SUSPENSA só é gerada pela inativação do aluno.)
 async function restaurarSuspensas(tx, alunoId) {
+  const anoAtivo = await tx.anoLetivo.findFirst({ where: { ativo: true }, select: { ano: true } });
+
   const ativas = await tx.matricula.findMany({
     where: { alunoId, status: 'ATIVA' },
     select: { turma: { select: { anoLetivoId: true } } },
@@ -16,7 +20,7 @@ async function restaurarSuspensas(tx, alunoId) {
 
   const suspensas = await tx.matricula.findMany({
     where: { alunoId, status: 'SUSPENSA' },
-    include: { turma: { select: { anoLetivoId: true, anoLetivo: { select: { ativo: true } } } } },
+    include: { turma: { select: { anoLetivoId: true, anoLetivo: { select: { ano: true } } } } },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
   });
 
@@ -25,8 +29,12 @@ async function restaurarSuspensas(tx, alunoId) {
 
   for (const m of suspensas) {
     const { anoLetivoId, anoLetivo } = m.turma;
-    if (!anoLetivo.ativo) {
-      mantidas.push({ matriculaId: m.id, turmaId: m.turmaId, motivo: MOTIVO_ANO_INATIVO });
+    if (!anoAtivo) {
+      mantidas.push({ matriculaId: m.id, turmaId: m.turmaId, motivo: MOTIVO_SEM_ANO_ATIVO });
+      continue;
+    }
+    if (anoLetivo.ano < anoAtivo.ano) {
+      mantidas.push({ matriculaId: m.id, turmaId: m.turmaId, motivo: MOTIVO_ANO_ANTERIOR });
       continue;
     }
     if (anosOcupados.has(anoLetivoId)) {
