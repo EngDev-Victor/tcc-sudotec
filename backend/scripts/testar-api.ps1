@@ -826,6 +826,16 @@ if ($anoId) {
   if ($ativasU.Count -ne 1 -or @($codigos | Where-Object { $_ -eq 201 }).Count -ne 1) { Write-Host "  codigos recebidos: $($codigos -join ', ')" -ForegroundColor Yellow }
 }
 
+# ---------- V. Datas inexistentes (revisao A) ----------
+Write-Host "`n== Datas inexistentes ==" -ForegroundColor Cyan
+$dv1 = ReqErro POST "/anos-letivos" @{ ano = 2099; dataInicio = "2099-02-31"; dataFim = "2099-12-01" } $tk
+Verificar "ano letivo com 31/02 -> 400 em dataInicio" ($dv1.Status -eq 400 -and (MsgCampo $dv1 "dataInicio") -match '^Data inv')
+if ($anoId) {
+  $dv2 = ReqErro PUT "/anos-letivos/$anoId" @{ dataFim = "2026-11-31" } $tk
+  Verificar "atualizar ano letivo com 31/11 -> 400 em dataFim" ($dv2.Status -eq 400 -and (MsgCampo $dv2 "dataFim") -match '^Data inv')
+  Verificar "campo invalido no PUT nao gera aviso de 'nenhum campo'" (@($dv2.Dados.detalhes | Where-Object { $_ }).Count -eq 1)
+}
+
 # ---------- Resumo ----------
 Write-Host ""
 $cor = "Green"

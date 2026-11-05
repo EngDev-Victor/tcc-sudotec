@@ -48,17 +48,27 @@ const idRef = z
   .int('Deve ser um número inteiro.')
   .positive('Deve ser maior que zero.');
 
+// Confere se a data existe de verdade. O Date.parse "corrige" datas impossíveis
+// (2026-02-31 vira 2026-03-03), então a data montada precisa voltar idêntica ao texto.
+function dataExiste(valor) {
+  const d = new Date(`${valor}T00:00:00.000Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === valor;
+}
+
 const data = z
   .string(msgTipo('Deve ser um texto no formato AAAA-MM-DD.'))
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
-  .refine((valor) => !Number.isNaN(Date.parse(valor)), 'Data inválida.');
+  .refine(dataExiste, 'Data inválida.');
 
-// Na atualização todos os campos viram opcionais, mas é preciso mandar ao menos um
+// Na atualização todos os campos viram opcionais, mas é preciso mandar ao menos um.
+// O `when` faz a regra rodar só quando os campos enviados são válidos: assim um campo
+// inválido não gera também o aviso (falso) de "nenhum campo informado".
 const atualizacao = (base) =>
   base
     .partial()
     .refine((dados) => Object.keys(dados).length > 0, {
       message: 'Informe ao menos um campo para atualizar.',
+      when: (contexto) => contexto.issues.length === 0,
     });
 
 // ---------- CPF, telefone e data de nascimento ----------
@@ -108,10 +118,7 @@ const dataNascimentoCampo = () =>
   z
     .string(msgTipo('Deve ser um texto no formato AAAA-MM-DD.'))
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
-    .refine((valor) => {
-      const d = new Date(`${valor}T00:00:00.000Z`);
-      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === valor;
-    }, 'Data inválida.')
+    .refine(dataExiste, 'Data inválida.')
     .refine(
       (valor) => valor <= new Date().toISOString().slice(0, 10),
       'A data de nascimento não pode estar no futuro.'
