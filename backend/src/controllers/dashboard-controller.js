@@ -3,7 +3,7 @@ import { ErroHttp } from '../lib/erro-http.js';
 import { lerId } from './crud-controller.js';
 
 const LIMITE_LISTA = 20;
-const STATUS = ['ATIVA', 'TRANSFERIDA', 'CANCELADA', 'CONCLUIDA'];
+const STATUS = ['ATIVA', 'SUSPENSA', 'TRANSFERIDA', 'CANCELADA', 'CONCLUIDA'];
 
 // Usa o ano informado em ?anoLetivoId= ou, se não vier, o ano ativo
 async function resolverAno(anoLetivoId) {
@@ -77,15 +77,16 @@ export const dashboardController = {
         where: { turma: filtroAno },
         _count: { _all: true },
       }),
+      // Alocações de professores inativos ficam no histórico, mas não contam nos indicadores
       prisma.alocacaoProfessorTurma.findMany({
-        where: { turma: filtroAno },
-        select: { turmaId: true, professorId: true, professor: { select: { ativo: true } } },
+        where: { turma: filtroAno, professor: { ativo: true } },
+        select: { turmaId: true, professorId: true },
       }),
       prisma.aluno.count({
         where: { matriculas: { some: { status: 'ATIVA', turma: filtroAno } } },
       }),
       prisma.professor.count({
-        where: { alocacoes: { some: { turma: filtroAno } } },
+        where: { ativo: true, alocacoes: { some: { turma: filtroAno } } },
       }),
       prisma.aluno.count({ where: alunosSemMatricula }),
       prisma.aluno.findMany({
@@ -102,16 +103,12 @@ export const dashboardController = {
     }
 
     // Uma alocação é um par professor + disciplina; aqui contamos também os professores distintos
+    // (só professores ativos: os inativos já foram filtrados na consulta)
     const porTurma = new Map();
     for (const a of alocacoes) {
-      const atual = porTurma.get(a.turmaId) ?? {
-        alocacoes: 0,
-        professores: new Set(),
-        ativos: new Set(),
-      };
+      const atual = porTurma.get(a.turmaId) ?? { alocacoes: 0, professores: new Set() };
       atual.alocacoes += 1;
       atual.professores.add(a.professorId);
-      if (a.professor.ativo) atual.ativos.add(a.professorId);
       porTurma.set(a.turmaId, atual);
     }
 
@@ -124,7 +121,6 @@ export const dashboardController = {
         sala: t.sala,
         alunosAtivos: t._count.matriculas,
         professores: dados ? dados.professores.size : 0,
-        professoresAtivos: dados ? dados.ativos.size : 0,
         alocacoes: dados ? dados.alocacoes : 0,
       };
     });
@@ -149,7 +145,7 @@ export const dashboardController = {
       ocupacaoPorTurma,
       pendencias: {
         turmasSemProfessor: ocupacaoPorTurma
-          .filter((t) => t.professoresAtivos === 0)
+          .filter((t) => t.professores === 0)
           .map((t) => ({ id: t.turmaId, nome: t.nome })),
         turmasSemAlunos: ocupacaoPorTurma
           .filter((t) => t.alunosAtivos === 0)

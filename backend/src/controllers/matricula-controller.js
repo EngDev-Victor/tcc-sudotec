@@ -4,7 +4,7 @@ import { lerId } from './crud-controller.js';
 import { lerPaginacao, montarResposta } from '../lib/paginacao.js';
 import { lerIdQuery } from '../lib/consulta.js';
 
-const STATUS_VALIDOS = ['ATIVA', 'TRANSFERIDA', 'CANCELADA', 'CONCLUIDA'];
+const STATUS_VALIDOS = ['ATIVA', 'SUSPENSA', 'TRANSFERIDA', 'CANCELADA', 'CONCLUIDA'];
 
 const include = { aluno: true, turma: true };
 
@@ -126,11 +126,12 @@ export const matriculaController = {
   },
 
   // Só matrículas ativas podem ser canceladas
+   // Matrículas ATIVA ou SUSPENSA podem ser canceladas
   async cancelar(req, res) {
     const id = lerId(req.params.id);
 
     const resultado = await prisma.matricula.updateMany({
-      where: { id, status: 'ATIVA' },
+      where: { id, status: { in: ['ATIVA', 'SUSPENSA'] } },
       data: { status: 'CANCELADA' },
     });
 
@@ -142,7 +143,7 @@ export const matriculaController = {
       if (!existente) throw new ErroHttp(404, 'Matrícula não encontrada.');
       throw new ErroHttp(
         409,
-        `Só é possível cancelar matrículas ativas (status atual: ${existente.status}).`
+        `Só é possível cancelar matrículas ativas ou suspensas (status atual: ${existente.status}).`
       );
     }
 

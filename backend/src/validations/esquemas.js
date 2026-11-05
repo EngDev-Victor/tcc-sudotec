@@ -2,16 +2,41 @@ import { z } from 'zod';
 
 const OBRIGATORIO = 'Campo obrigatório.';
 
+// Zod 4 ignora required_error / invalid_type_error / errorMap: a mensagem vai na opção `error`.
+// Campo ausente -> "Campo obrigatório."; tipo errado -> a mensagem informada.
+const msgTipo = (mensagem) => ({
+  error: (problema) => (problema.input === undefined ? OBRIGATORIO : mensagem),
+});
+
+// Enum: lista os valores aceitos (ex.: "Turno inválido. Use: MANHA, TARDE.")
+const opcoes = (inicio, valores) => msgTipo(`${inicio}. Use: ${valores.join(', ')}.`);
+
+// Rede de segurança para qualquer schema sem mensagem própria
+z.config({
+  customError: (problema) => {
+    if (problema.code === 'invalid_type') {
+      if (problema.input === undefined) return OBRIGATORIO;
+      if (problema.expected === 'object') return 'O corpo da requisição deve ser um objeto JSON.';
+      return 'Tipo de valor inválido.';
+    }
+    if (problema.code === 'invalid_value') return 'Valor inválido.';
+    if (problema.code === 'invalid_format') return 'Formato inválido.';
+    if (problema.code === 'too_small') return 'Valor abaixo do mínimo permitido.';
+    if (problema.code === 'too_big') return 'Valor acima do máximo permitido.';
+    return 'Valor inválido.';
+  },
+});
+
 const texto = (max = 120) =>
   z
-    .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+    .string(msgTipo('Deve ser um texto.'))
     .trim()
     .min(1, 'Não pode ficar vazio.')
     .max(max, `Máximo de ${max} caracteres.`);
 
 const email = () =>
   z
-    .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+    .string(msgTipo('Deve ser um texto.'))
     .trim()
     .toLowerCase()
     .email('E-mail inválido.')
@@ -19,12 +44,12 @@ const email = () =>
 
 // IDs de referência: precisam vir como número inteiro positivo
 const idRef = z
-  .number({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um número inteiro.' })
+  .number(msgTipo('Deve ser um número inteiro.'))
   .int('Deve ser um número inteiro.')
   .positive('Deve ser maior que zero.');
 
 const data = z
-  .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto no formato AAAA-MM-DD.' })
+  .string(msgTipo('Deve ser um texto no formato AAAA-MM-DD.'))
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
   .refine((valor) => !Number.isNaN(Date.parse(valor)), 'Data inválida.');
 
@@ -68,20 +93,20 @@ function telefoneValido(telefone) {
 // Aceita com ou sem máscara e guarda só os dígitos
 const cpfCampo = () =>
   z
-    .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+    .string(msgTipo('Deve ser um texto.'))
     .transform(apenasDigitos)
     .refine(cpfValido, 'CPF inválido.');
 
 const telefoneCampo = () =>
   z
-    .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+    .string(msgTipo('Deve ser um texto.'))
     .transform(apenasDigitos)
     .refine(telefoneValido, 'Telefone inválido. Informe DDD + número (10 ou 11 dígitos).');
 
 // Entra como AAAA-MM-DD e sai como Date (UTC), que é o que o Prisma espera
 const dataNascimentoCampo = () =>
   z
-    .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto no formato AAAA-MM-DD.' })
+    .string(msgTipo('Deve ser um texto no formato AAAA-MM-DD.'))
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
     .refine((valor) => {
       const d = new Date(`${valor}T00:00:00.000Z`);
@@ -113,16 +138,14 @@ const professorBase = z.object({
   email: email(),
   especialidade: texto(80),
   telefone: telefoneCampo(),
-  titulacao: z.enum(TITULACOES, {
-    errorMap: () => ({ message: `Titulação inválida. Use: ${TITULACOES.join(', ')}.` }),
-  }),
+  titulacao: z.enum(TITULACOES, opcoes('Titulação inválida', TITULACOES)),
   disciplinaPrincipalId: idRef.nullable().optional(),
 });
 
 const disciplinaBase = z.object({
   nome: texto(80),
   cargaHoraria: z
-    .number({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um número inteiro.' })
+    .number(msgTipo('Deve ser um número inteiro.'))
     .int('Deve ser um número inteiro.')
     .positive('Deve ser maior que zero.')
     .max(2000, 'Máximo de 2000 horas.'),
@@ -133,9 +156,7 @@ const TURNOS = ['MANHA', 'TARDE'];
 const turmaBase = z.object({
   nome: texto(40),
   anoLetivoId: idRef,
-  turno: z.enum(TURNOS, {
-    errorMap: () => ({ message: `Turno inválido. Use: ${TURNOS.join(', ')}.` }),
-  }),
+  turno: z.enum(TURNOS, opcoes('Turno inválido', TURNOS)),
   sala: texto(30),
 });
 
@@ -147,7 +168,7 @@ const alocacaoBase = z.object({
 
 const anoLetivoBase = z.object({
   ano: z
-    .number({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um número inteiro.' })
+    .number(msgTipo('Deve ser um número inteiro.'))
     .int('Deve ser um número inteiro.')
     .min(2000, 'Ano mínimo: 2000.')
     .max(2100, 'Ano máximo: 2100.'),
@@ -160,12 +181,12 @@ const PAPEIS = ['GESTOR', 'PROFESSOR', 'ALUNO', 'RESPONSAVEL'];
 export const esquemas = {
   login: z.object({
     email: z
-      .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+      .string(msgTipo('Deve ser um texto.'))
       .trim()
       .toLowerCase()
       .min(1, 'Não pode ficar vazio.'),
     senha: z
-      .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+      .string(msgTipo('Deve ser um texto.'))
       .min(1, 'Não pode ficar vazio.'),
   }),
 
@@ -174,20 +195,18 @@ export const esquemas = {
       nome: texto(120),
       email: email(),
       senha: z
-        .string({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser um texto.' })
+        .string(msgTipo('Deve ser um texto.'))
         .min(8, 'A senha deve ter no mínimo 8 caracteres.')
         .max(72, 'A senha deve ter no máximo 72 caracteres.'),
-      papel: z.enum(PAPEIS, {
-        errorMap: () => ({ message: `Papel inválido. Use: ${PAPEIS.join(', ')}.` }),
-      }),
+      papel: z.enum(PAPEIS, opcoes('Papel inválido', PAPEIS)),
     }),
     ativo: z.object({
-      ativo: z.boolean({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser true ou false.' }),
+      ativo: z.boolean(msgTipo('Deve ser true ou false.')),
     }),
   },
 
-    ativo: z.object({
-    ativo: z.boolean({ required_error: OBRIGATORIO, invalid_type_error: 'Deve ser true ou false.' }),
+  ativo: z.object({
+    ativo: z.boolean(msgTipo('Deve ser true ou false.')),
   }),
 
   aluno: { criar: alunoBase, atualizar: atualizacao(alunoBase) },

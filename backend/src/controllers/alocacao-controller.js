@@ -1,10 +1,13 @@
 import { prisma } from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erro-http.js';
+import { lerBooleano, lerIdQuery } from '../lib/consulta.js';
 import { criarCrudController, lerId } from './crud-controller.js';
+
+const include = { professor: true, turma: true, disciplina: true };
 
 const base = criarCrudController('alocacaoProfessorTurma', {
   campos: ['professorId', 'turmaId', 'disciplinaId'],
-  include: { professor: true, turma: true, disciplina: true },
+  include,
   filtros: ['turmaId', 'professorId', 'disciplinaId'],
   referencias: {
     professorId: ['professor', 'Professor não encontrado.'],
@@ -26,6 +29,27 @@ async function exigirProfessorAtivo(professorId) {
 
 export const alocacaoController = {
   ...base,
+
+  // GET /alocacoes?turmaId=&professorId=&disciplinaId=&incluirInativos=
+  // Alocações de professores inativos ficam no banco (histórico), mas só aparecem
+  // com ?incluirInativos=true. O detalhe por id (GET /alocacoes/:id) continua acessível.
+  async listar(req, res) {
+    const where = {};
+    for (const campo of ['turmaId', 'professorId', 'disciplinaId']) {
+      const valor = lerIdQuery(req.query[campo], campo);
+      if (valor !== undefined) where[campo] = valor;
+    }
+    if (!lerBooleano(req.query.incluirInativos, 'incluirInativos')) {
+      where.professor = { ativo: true };
+    }
+
+    const itens = await prisma.alocacaoProfessorTurma.findMany({
+      where,
+      include,
+      orderBy: { id: 'asc' },
+    });
+    return res.json(itens);
+  },
 
   async criar(req, res) {
     await exigirProfessorAtivo(req.body.professorId);

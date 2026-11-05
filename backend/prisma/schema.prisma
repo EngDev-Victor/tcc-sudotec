@@ -9,6 +9,7 @@ datasource db {
 
 enum StatusMatricula {
   ATIVA
+  SUSPENSA
   TRANSFERIDA
   CANCELADA
   CONCLUIDA

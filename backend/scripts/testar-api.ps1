@@ -244,9 +244,6 @@ Verificar "professor: /auth/me -> 200" ((Req GET "/auth/me" $null $tp).Status -e
 Verificar "professor: /turmas -> 403" ((Req GET "/turmas" $null $tp).Status -eq 403)
 Verificar "professor: /dashboard/gestor -> 403" ((Req GET "/dashboard/gestor" $null $tp).Status -eq 403)
 
-
-
-
 # ---------- H2. JWT conferido no banco (etapa 6.1) ----------
 Write-Host "`n== JWT x estado atual do usuario ==" -ForegroundColor Cyan
 $uid = $u.Dados.id
@@ -271,26 +268,28 @@ Verificar "inativar aluno inexistente -> 404" ((Req PATCH "/alunos/999999/ativo"
 Verificar "inativar com valor invalido -> 400" ((Req PATCH "/alunos/$($ax.Dados.id)/ativo" @{ ativo = "sim" } $tk).Status -eq 400)
 
 if ($anoId) {
-  # Inativar aluno cancela as matrículas ativas e preserva o histórico
+    # Inativar aluno suspende as matrículas ativas; reativar restaura
   $ai = Req POST "/alunos" (CorpoAluno "i$sfx") $tk
   $mi = Req POST "/matriculas" @{ alunoId = $ai.Dados.id; turmaId = $tid } $tk
   Verificar "matricular aluno para teste de inativacao -> 201" ($mi.Status -eq 201)
 
   $inat = Req PATCH "/alunos/$($ai.Dados.id)/ativo" @{ ativo = $false } $tk
   Verificar "inativar aluno -> 200 e ativo=false" ($inat.Status -eq 200 -and $inat.Dados.ativo -eq $false)
-  Verificar "inativar cancela 1 matricula ativa" ($inat.Dados.matriculasCanceladas -eq 1)
+  Verificar "inativar suspende 1 matricula ativa" ($inat.Dados.matriculasSuspensas -eq 1)
   $hist1 = @((Req GET "/matriculas?alunoId=$($ai.Dados.id)" $null $tk).Dados.dados)
-  Verificar "historico preservado (1 matricula CANCELADA)" ($hist1.Count -eq 1 -and $hist1[0].status -eq "CANCELADA")
+  Verificar "historico preservado (1 matricula SUSPENSA)" ($hist1.Count -eq 1 -and $hist1[0].status -eq "SUSPENSA")
 
   $reat = Req PATCH "/alunos/$($ai.Dados.id)/ativo" @{ ativo = $true } $tk
   Verificar "reativar aluno -> 200 e ativo=true" ($reat.Status -eq 200 -and $reat.Dados.ativo -eq $true)
+  Verificar "reativar informa 1 matricula restaurada" (@($reat.Dados.matriculasRestauradas | Where-Object { $_ }).Count -eq 1)
   $hist2 = @((Req GET "/matriculas?alunoId=$($ai.Dados.id)" $null $tk).Dados.dados)
-  Verificar "reativar nao recria matricula" ($hist2.Count -eq 1 -and $hist2[0].status -eq "CANCELADA")
+  Verificar "reativar restaura a matricula (sem criar outra)" ($hist2.Count -eq 1 -and $hist2[0].status -eq "ATIVA")
 
-  # Inativar professor mantém as alocações existentes
+  # Inativar professor mantém as alocações no banco, mas elas saem da listagem normal
   $pinat = Req PATCH "/professores/$($prof.Dados.id)/ativo" @{ ativo = $false } $tk
   Verificar "inativar professor -> 200 e ativo=false" ($pinat.Status -eq 200 -and $pinat.Dados.ativo -eq $false)
-  Verificar "alocacoes do professor inativo preservadas" (@((Req GET "/alocacoes?professorId=$($prof.Dados.id)" $null $tk).Dados).Count -eq 1)
+  Verificar "alocacoes do professor inativo somem da listagem normal" (@((Req GET "/alocacoes?professorId=$($prof.Dados.id)" $null $tk).Dados | Where-Object { $_ }).Count -eq 0)
+  Verificar "alocacoes do professor inativo preservadas (incluirInativos)" (@((Req GET "/alocacoes?professorId=$($prof.Dados.id)&incluirInativos=true" $null $tk).Dados | Where-Object { $_ }).Count -eq 1)
   $preat = Req PATCH "/professores/$($prof.Dados.id)/ativo" @{ ativo = $true } $tk
   Verificar "reativar professor -> 200 e ativo=true" ($preat.Status -eq 200 -and $preat.Dados.ativo -eq $true)
 
@@ -316,7 +315,6 @@ if ($anoId) {
 }
 
 Verificar "matricula nao tem DELETE -> 404" ((Req DELETE "/matriculas/1" $null $tk).Status -eq 404)
-
 # ---------- J. Regras de matrícula e alocação ----------
 Write-Host "`n== Regras de matrícula e alocação ==" -ForegroundColor Cyan
 
@@ -328,7 +326,8 @@ if ($anoId) {
   Verificar "matricular aluno inexistente -> 404" ((Req POST "/matriculas" @{ alunoId = 999999; turmaId = $tid } $tk).Status -eq 404)
   Verificar "matricular em turma inexistente -> 404" ((Req POST "/matriculas" @{ alunoId = $ai.Dados.id; turmaId = 999999 } $tk).Status -eq 404)
 
-  # Cancelar e transferir só valem para matrícula ativa
+  # Cancelar vale para matrícula ativa ou suspensa; transferir, só para ativa
+  Verificar "cancelar matricula ativa (restaurada na reativacao) -> 200" ((Req PATCH "/matriculas/$($mi.Dados.id)/cancelar" $null $tk).Status -eq 200)
   Verificar "cancelar matricula ja cancelada -> 409" ((Req PATCH "/matriculas/$($mi.Dados.id)/cancelar" $null $tk).Status -eq 409)
   Verificar "cancelar matricula inexistente -> 404" ((Req PATCH "/matriculas/999999/cancelar" $null $tk).Status -eq 404)
   Verificar "transferir matricula ja transferida -> 409" ((Req POST "/matriculas/$($m1.Dados.id)/transferir" @{ turmaDestinoId = $tid } $tk).Status -eq 409)
@@ -391,7 +390,7 @@ if ($anoId) {
   $o1 = @($d1.ocupacaoPorTurma | Where-Object { $_.turmaId -eq $tdId })[0]
   Verificar "turma: 3 alocacoes (professor x disciplina)" ($o1.alocacoes -eq 3)
   Verificar "turma: conta 2 professores distintos" ($o1.professores -eq 2)
-  Verificar "turma: 2 professores ativos" ($o1.professoresAtivos -eq 2)
+
   Verificar "professores alocados no ano contam distintos (+2)" ($d1.professores.alocadosNoAno -eq ($d0.professores.alocadosNoAno + 2))
   Verificar "turma com professores nao esta em 'sem professor'" (-not (EstaEm $d1.pendencias.turmasSemProfessor $tdId))
 
@@ -399,7 +398,8 @@ if ($anoId) {
   Req PATCH "/professores/$($pb.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
   $d2 = Painel
   $o2 = @($d2.ocupacaoPorTurma | Where-Object { $_.turmaId -eq $tdId })[0]
-  Verificar "inativar professor: turma segue com 2 distintos e 1 ativo" ($o2.professores -eq 2 -and $o2.professoresAtivos -eq 1)
+   Verificar "inativar professor: turma passa a contar 1 professor e 2 alocacoes" ($o2.professores -eq 1 -and $o2.alocacoes -eq 2)
+  Verificar "inativar professor: alocados no ano desce 1" ($d2.professores.alocadosNoAno -eq ($d1.professores.alocadosNoAno - 1))
   Verificar "professores inativos subiu 1" ($d2.professores.inativos -eq ($d0.professores.inativos + 1))
 
   Req PATCH "/professores/$($pa.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
@@ -526,7 +526,7 @@ if ($anoId) {
   Req DELETE "/anos-letivos/$($anoZr.Dados.id)" $null $tk | Out-Null
 }
 
-# ---------- J. CORS (etapa 6.2) ----------
+# ---------- J2. CORS (etapa 6.2) ----------
 Write-Host "`n== CORS ==" -ForegroundColor Cyan
 function ReqCors {
   param($Metodo, $Caminho, $Origem, $Extra = @{}, $Token = $null)
@@ -549,8 +549,7 @@ $c3 = ReqCors OPTIONS "/turmas" $frente @{ "Access-Control-Request-Method" = "PO
 Verificar "CORS: preflight -> 204 sem exigir token" ($c3.Status -eq 204 -and $c3.Headers["Access-Control-Allow-Origin"] -eq $frente)
 Verificar "CORS: preflight libera Authorization" ([string]$c3.Headers["Access-Control-Allow-Headers"] -match "Authorization")
 
-
-# ---------- K. Limite de login (etapa 6.3) ----------
+# ---------- K2. Limite de login (etapa 6.3) ----------
 Write-Host "`n== Limite de tentativas de login ==" -ForegroundColor Cyan
 $emailLim = "limite$sfx@teste.com"
 $uLim = Req POST "/usuarios" @{ nome = "Usuario Limite"; email = $emailLim; senha = "senha12345"; papel = "PROFESSOR" } $tk
@@ -565,9 +564,7 @@ Verificar "5 senhas erradas seguidas -> todas 401 (login certo zerou o contador)
 Verificar "6a tentativa, mesmo com a senha certa -> 429" ((Req POST "/auth/login" @{ email = $emailLim; senha = "senha12345" }).Status -eq 429)
 Verificar "outro e-mail no mesmo IP continua liberado -> 200" ((Req POST "/auth/login" @{ email = "gestor@skolla.com"; senha = $senha }).Status -eq 200)
 
-
-
-# ---------- L. Rota inexistente (etapa 6.4) ----------
+# ---------- L2. Rota inexistente (etapa 6.4) ----------
 Write-Host "`n== Rota inexistente ==" -ForegroundColor Cyan
 function ReqBruta {
   param($Url, $Token = $null)
@@ -594,7 +591,6 @@ Verificar "sem token: rota inexistente continua 401" ((ReqBruta "$Api/rota-que-n
 Verificar "professor: rota inexistente continua 403" ((ReqBruta "$Api/rota-que-nao-existe" $tp).Status -eq 403)
 $n2 = ReqBruta "$raiz/fora-da-api"
 Verificar "fora de /api: 404 em JSON" ($n2.Status -eq 404 -and (TemErroJson $n2.Corpo))
-
 
 # ---------- M. Duplicidade com campo indicado (etapa 6.5) ----------
 Write-Host "`n== Duplicidade (409 com campo) ==" -ForegroundColor Cyan
@@ -633,9 +629,6 @@ if ($anoId) {
   Verificar "turma com mesmo nome no ano -> 409 indicando nome e ano" ($d4.Status -eq 409 -and @($d4.Dados.campos) -contains "nome")
 }
 
-
-
-
 # ---------- N. Tokens assinados: expirado, inexistente, papel forjado (etapa 6.6) ----------
 Write-Host "`n== Tokens assinados (expirado / inexistente / papel forjado) ==" -ForegroundColor Cyan
 function TokenTeste($Sub, $Modo = "valido", $Papel = "GESTOR") {
@@ -650,6 +643,99 @@ Verificar "token expirado -> 401" ((Req GET "/auth/me" $null (TokenTeste $idGest
 Verificar "token de usuario inexistente -> 401" ((Req GET "/auth/me" $null (TokenTeste 999999 "valido")).Status -eq 401)
 $tForjado = TokenTeste $u.Dados.id "valido" "GESTOR"
 Verificar "token dizendo GESTOR para um PROFESSOR -> 403 (papel vem do banco)" ((Req GET "/turmas" $null $tForjado).Status -eq 403)
+
+# ---------- O. Ano letivo da turma (correcao 1) ----------
+Write-Host "`n== Troca de ano letivo da turma ==" -ForegroundColor Cyan
+if ($anoId) {
+  $usadosO = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+  $anoO = 2070
+  while ($usadosO -contains $anoO) { $anoO++ }
+  $outroAno = Req POST "/anos-letivos" @{ ano = $anoO; dataInicio = "$anoO-02-01"; dataFim = "$anoO-12-01" } $tk
+  $outroAnoId = $outroAno.Dados.id
+
+  Verificar "trocar ano de turma com matriculas -> 409" ((Req PUT "/turmas/$tid" @{ anoLetivoId = $outroAnoId } $tk).Status -eq 409)
+  Verificar "turma continua no ano original" ((Req GET "/turmas/$tid" $null $tk).Dados.anoLetivoId -eq $anoId)
+  Verificar "reenviar o mesmo ano letivo -> 200" ((Req PUT "/turmas/$tid" @{ anoLetivoId = $anoId } $tk).Status -eq 200)
+
+  $tLivre = Req POST "/turmas" @{ nome = "livre-$sfx"; anoLetivoId = $anoId; turno = "TARDE"; sala = "Sala 8" } $tk
+  Verificar "turma sem matriculas pode trocar de ano -> 200" ((Req PUT "/turmas/$($tLivre.Dados.id)" @{ anoLetivoId = $outroAnoId } $tk).Status -eq 200)
+
+  Req DELETE "/turmas/$($tLivre.Dados.id)" $null $tk | Out-Null
+  Req DELETE "/anos-letivos/$outroAnoId" $null $tk | Out-Null
+}
+
+# ---------- P. Mensagens de validacao em portugues (correcao 2) ----------
+Write-Host "`n== Mensagens de validacao ==" -ForegroundColor Cyan
+function MsgCampo($resp, $campo) {
+  return [string](@($resp.Dados.detalhes | Where-Object { $_.campo -eq $campo })[0].mensagem)
+}
+function SemIngles($resp) {
+  return (@($resp.Dados.detalhes | Where-Object { $_.mensagem -match 'Invalid|expected|received' }).Count -eq 0)
+}
+
+$v1 = ReqErro POST "/turmas" @{} $tk
+Verificar "campo ausente -> 'Campo obrigatorio'" ($v1.Status -eq 400 -and (MsgCampo $v1 "nome") -match '^Campo obrigat')
+
+$v2 = ReqErro POST "/turmas" @{ nome = "x"; anoLetivoId = "1"; turno = "NOITE"; sala = "S1" } $tk
+Verificar "tipo errado -> 'Deve ser um numero inteiro'" ((MsgCampo $v2 "anoLetivoId") -match '^Deve ser um n')
+Verificar "enum invalido lista os valores aceitos" ((MsgCampo $v2 "turno") -match 'Use: MANHA, TARDE')
+
+$v3 = ReqErro PATCH "/alunos/$($ax.Dados.id)/ativo" @{ ativo = "sim" } $tk
+Verificar "booleano invalido -> 'Deve ser true ou false'" ((MsgCampo $v3 "ativo") -match 'true ou false')
+
+Verificar "nenhuma mensagem de validacao em ingles" ((SemIngles $v1) -and (SemIngles $v2) -and (SemIngles $v3))
+
+# ---------- Q. Alocacoes de professores inativos (correcao 3) ----------
+Write-Host "`n== Alocacoes de professores inativos ==" -ForegroundColor Cyan
+if ($anoId) {
+  $pq = Req POST "/professores" @{ nome = "Prof Hist $sfx"; email = "phist$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-5555"; titulacao = "GRADUACAO" } $tk
+  $alq = Req POST "/alocacoes" @{ professorId = $pq.Dados.id; turmaId = $tid; disciplinaId = $disc.Dados.id } $tk
+  Verificar "alocar professor para teste de historico -> 201" ($alq.Status -eq 201)
+  $qid = $alq.Dados.id
+  function TemAloc($lista, $id) { return (@($lista | Where-Object { $_.alocacaoId -eq $id -or $_.id -eq $id }).Count -gt 0) }
+
+  Verificar "detalhe da turma mostra professor ativo" (TemAloc (Req GET "/turmas/$tid" $null $tk).Dados.professores $qid)
+  Req PATCH "/professores/$($pq.Dados.id)/ativo" @{ ativo = $false } $tk | Out-Null
+
+  Verificar "detalhe da turma oculta professor inativo" (-not (TemAloc (Req GET "/turmas/$tid" $null $tk).Dados.professores $qid))
+  Verificar "detalhe da turma com incluirInativos mostra o historico" (TemAloc (Req GET "/turmas/$tid`?incluirInativos=true" $null $tk).Dados.professores $qid)
+  Verificar "listagem de alocacoes oculta professor inativo" (-not (TemAloc @((Req GET "/alocacoes?turmaId=$tid" $null $tk).Dados) $qid))
+  Verificar "listagem com incluirInativos mostra o historico" (TemAloc @((Req GET "/alocacoes?turmaId=$tid&incluirInativos=true" $null $tk).Dados) $qid)
+  Verificar "alocacao por id continua acessivel -> 200" ((Req GET "/alocacoes/$qid" $null $tk).Status -eq 200)
+  Verificar "incluirInativos invalido -> 400" ((Req GET "/alocacoes?incluirInativos=talvez" $null $tk).Status -eq 400)
+}
+
+# ---------- R. Matricula SUSPENSA (correcao 4) ----------
+Write-Host "`n== Matricula SUSPENSA ==" -ForegroundColor Cyan
+if ($anoId) {
+  # Turma num ano letivo inativo + turma no ano ativo
+  $usadosR = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+  $anoR = 2080
+  while ($usadosR -contains $anoR) { $anoR++ }
+  $anoRr = Req POST "/anos-letivos" @{ ano = $anoR; dataInicio = "$anoR-02-01"; dataFim = "$anoR-12-01" } $tk
+  $turR = Req POST "/turmas" @{ nome = "susp-inat-$sfx"; anoLetivoId = $anoRr.Dados.id; turno = "MANHA"; sala = "Sala 9" } $tk
+  $turA = Req POST "/turmas" @{ nome = "susp-ativ-$sfx"; anoLetivoId = $anoId; turno = "TARDE"; sala = "Sala 10" } $tk
+
+  $ar = Req POST "/alunos" (CorpoAluno "su$sfx") $tk
+  $mA = Req POST "/matriculas" @{ alunoId = $ar.Dados.id; turmaId = $turA.Dados.id } $tk
+  $mR = Req POST "/matriculas" @{ alunoId = $ar.Dados.id; turmaId = $turR.Dados.id } $tk
+  Verificar "aluno matriculado em dois anos diferentes -> 201 e 201" ($mA.Status -eq 201 -and $mR.Status -eq 201)
+
+  $inR = Req PATCH "/alunos/$($ar.Dados.id)/ativo" @{ ativo = $false } $tk
+  Verificar "inativar suspende as 2 matriculas" ($inR.Dados.matriculasSuspensas -eq 2)
+  Verificar "filtro status=SUSPENSA aceito" (@((Req GET "/matriculas?alunoId=$($ar.Dados.id)&status=SUSPENSA" $null $tk).Dados.dados | Where-Object { $_ }).Count -eq 2)
+  Verificar "transferir matricula SUSPENSA -> 409" ((Req POST "/matriculas/$($mA.Dados.id)/transferir" @{ turmaDestinoId = $tid } $tk).Status -eq 409)
+  Verificar "dashboard conta matriculas SUSPENSA" ((Painel).matriculas.SUSPENSA -ge 1)
+
+  $reR = Req PATCH "/alunos/$($ar.Dados.id)/ativo" @{ ativo = $true } $tk
+  $rest = @($reR.Dados.matriculasRestauradas | Where-Object { $_ })
+  Verificar "reativar restaura so a matricula do ano ativo" ($rest.Count -eq 1 -and $rest[0] -eq $mA.Dados.id)
+  $mant = @($reR.Dados.matriculasMantidasSuspensas | Where-Object { $_ })
+  Verificar "matricula do ano inativo continua SUSPENSA com motivo" ($mant.Count -eq 1 -and $mant[0].matriculaId -eq $mR.Dados.id -and [string]$mant[0].motivo -match 'ano letivo')
+
+  Verificar "cancelar matricula SUSPENSA -> CANCELADA" ((Req PATCH "/matriculas/$($mR.Dados.id)/cancelar" $null $tk).Dados.status -eq "CANCELADA")
+  Verificar "cancelar matricula ja CANCELADA -> 409" ((Req PATCH "/matriculas/$($mR.Dados.id)/cancelar" $null $tk).Status -eq 409)
+}
 
 # ---------- Resumo ----------
 Write-Host ""
