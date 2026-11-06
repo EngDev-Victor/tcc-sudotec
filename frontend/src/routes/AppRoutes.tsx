@@ -12,6 +12,7 @@ import { TurmaDetalhePage } from "@/pages/Turmas/TurmaDetalhePage";
 import { AnosLetivosPage } from "@/pages/AnosLetivos/AnosLetivosPage";
 import { DisciplinasPage } from "@/pages/Disciplinas/DisciplinasPage";
 import { AlocacoesPage } from "@/pages/Alocacoes/AlocacoesPage";
+import { MatriculasPage } from "@/pages/Matriculas/MatriculasPage";
 
 export function AppRoutes() {
   return (
@@ -37,6 +38,7 @@ export function AppRoutes() {
           <Route path="/anos-letivos" element={<AnosLetivosPage />} />
           <Route path="/disciplinas" element={<DisciplinasPage />} />
           <Route path="/alocacoes" element={<AlocacoesPage />} />
+          <Route path="/matriculas" element={<MatriculasPage />} />
         </Route>
       </Route>
 

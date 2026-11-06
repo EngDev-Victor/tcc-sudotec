@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, Loader2, AlertCircle } from "lucide-react";
+import { Save, Loader2, AlertCircle, ClipboardList } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { Badge } from "@/components/Badge";
@@ -178,7 +178,17 @@ export function AlunoFormPage() {
             : "Preencha os dados do aluno. A matrícula em turma é feita depois, na tela de Matrículas."
         }
         onBack={voltar}
-        actions={aluno && <Badge tom={aluno.ativo ? "verde" : "vermelho"}>{aluno.ativo ? "Ativo" : "Inativo"}</Badge>}
+        actions={
+          aluno && (
+            <>
+              <Badge tom={aluno.ativo ? "verde" : "vermelho"}>{aluno.ativo ? "Ativo" : "Inativo"}</Badge>
+              <button className={BTN_SECUNDARIO} onClick={() => navigate(`/matriculas?alunoId=${aluno.id}`)}>
+                <ClipboardList size={14} />
+                Matrículas
+              </button>
+            </>
+          )
+        }
       />
       <Card className="max-w-2xl">
         <form onSubmit={salvar} noValidate>

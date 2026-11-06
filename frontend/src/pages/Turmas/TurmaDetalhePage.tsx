@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { Users, GraduationCap, BookMarked, Loader2, AlertCircle, Edit, Layers } from "lucide-react";
+import { Users, GraduationCap, BookMarked, Loader2, AlertCircle, Edit, Layers, ArrowLeftRight, Plus } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { Badge } from "@/components/Badge";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { BTN_ICONE, BTN_SECUNDARIO } from "@/components/estilos";
+import { BTN_ICONE, BTN_PRIMARIO, BTN_SECUNDARIO } from "@/components/estilos";
 import { buscarTurma } from "@/services/turmas";
 import type { TurmaDetalhe } from "@/types/entidades";
 import { ROTULO_TURNO } from "@/types/enums";
 import { mensagemDeErro } from "@/utils/erros";
+import { NovaMatriculaModal } from "@/pages/Matriculas/NovaMatriculaModal";
+import { TransferirModal, type MatriculaParaTransferir } from "@/pages/Matriculas/TransferirModal";
 
 type Aba = "alunos" | "professores";
 
@@ -26,6 +28,8 @@ export function TurmaDetalhePage() {
   const [incluirInativos, setIncluirInativos] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [matricularAberto, setMatricularAberto] = useState(false);
+  const [paraTransferir, setParaTransferir] = useState<MatriculaParaTransferir | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -77,10 +81,16 @@ export function TurmaDetalhePage() {
         subtitle={`${ROTULO_TURNO[turma.turno]} • ${turma.sala} • Ano letivo ${turma.anoLetivo.ano}`}
         onBack={voltar}
         actions={
-          <button className={BTN_SECUNDARIO} onClick={() => navigate(`/alocacoes?turmaId=${turma.id}`)}>
-            <Layers size={14} />
-            Gerenciar alocações
-          </button>
+          <>
+            <button className={BTN_SECUNDARIO} onClick={() => navigate(`/alocacoes?turmaId=${turma.id}`)}>
+              <Layers size={14} />
+              Gerenciar alocações
+            </button>
+            <button className={BTN_PRIMARIO} onClick={() => setMatricularAberto(true)}>
+              <Plus size={14} />
+              Matricular aluno
+            </button>
+          </>
         }
       />
 
@@ -151,9 +161,24 @@ export function TurmaDetalhePage() {
                     <td className="px-5 py-3.5 text-sm text-muted-foreground">{a.email}</td>
                     <td className="px-5 py-3.5 text-sm text-foreground font-semibold">{a.matricula}</td>
                     <td className="px-5 py-3.5">
-                      <button title="Ver cadastro" onClick={() => navigate(`/alunos/${a.id}/editar`)} className={BTN_ICONE}>
-                        <Edit size={14} className="text-muted-foreground" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          title="Transferir para outra turma"
+                          onClick={() =>
+                            setParaTransferir({
+                              matriculaId: a.matriculaId,
+                              alunoNome: a.nome,
+                              turma: { id: turma.id, nome: turma.nome, anoLetivoId: turma.anoLetivoId },
+                            })
+                          }
+                          className={BTN_ICONE}
+                        >
+                          <ArrowLeftRight size={14} className="text-sky-600" />
+                        </button>
+                        <button title="Ver cadastro" onClick={() => navigate(`/alunos/${a.id}/editar`)} className={BTN_ICONE}>
+                          <Edit size={14} className="text-muted-foreground" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -217,6 +242,25 @@ export function TurmaDetalhePage() {
           </div>
         </Card>
       )}
+
+      <NovaMatriculaModal
+        aberto={matricularAberto}
+        turmaPadraoId={turma.id}
+        aoFechar={() => setMatricularAberto(false)}
+        aoSalvar={() => {
+          setMatricularAberto(false);
+          carregar();
+        }}
+      />
+
+      <TransferirModal
+        matricula={paraTransferir}
+        aoFechar={() => setParaTransferir(null)}
+        aoTransferir={() => {
+          setParaTransferir(null);
+          carregar();
+        }}
+      />
     </div>
   );
 }

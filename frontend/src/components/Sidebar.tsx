@@ -24,7 +24,7 @@ const SIDEBAR_NAV: ItemMenu[] = [
   { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: true  },
   { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: true  },
   { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: true  },
-  { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: false },
+  { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: true  },
   { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: false },
 ];
 
