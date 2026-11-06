@@ -1,29 +1,47 @@
 import { useState } from "react";
 import {
-  AlertCircle, Lock, Mail, Check,
+  AlertCircle, Lock, Mail, Loader2,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { AuthLeftPanel } from "@/components/AuthLeftPanel";
 import { SkollaLogo } from "@/components/SkollaLogo";
+import { useAuth } from "@/contexts/AuthContext";
+import { mensagemDeErro } from "@/utils/erros";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { usuario, carregando, aviso, entrar } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  // Credenciais de demonstração — substituídas pelo login real (POST /auth/login) na etapa de autenticação
-  const DEMO = { email: "admin@skolla.edu.br", password: "admin123", label: "Gestor" };
+  // Página que o usuário tentou abrir antes de ser mandado para o login
+  const destino = (location.state as { de?: string } | null)?.de ?? "/dashboard";
 
-  const handleSubmit = (e: React.FormEvent) => {
+  if (!carregando && usuario) return <Navigate to={destino} replace />;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === DEMO.email && password === DEMO.password) {
-      navigate("/dashboard");
-    } else {
-      setError("E-mail ou senha incorretos. Use as credenciais de demonstração abaixo.");
-      setTimeout(() => setError(""), 4500);
+    if (!email.trim() || !password) {
+      setError("Informe o e-mail e a senha.");
+      return;
+    }
+    setError("");
+    setEnviando(true);
+    try {
+      await entrar(email.trim(), password);
+      navigate(destino, { replace: true });
+    } catch (erro) {
+      setError(mensagemDeErro(erro));
+      setPassword("");
+    } finally {
+      setEnviando(false);
     }
   };
+
+  const mensagem = error || aviso;
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -41,20 +59,6 @@ export function LoginPage() {
             <p className="text-sm text-muted-foreground mt-1">Acesse sua conta SKOLLA</p>
           </div>
 
-          {/* Demo hint */}
-          <div className="bg-sky-50 border border-sky-200 rounded-xl p-3.5 mb-5 flex gap-3">
-            <div className="w-5 h-5 rounded-full bg-sky-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Check size={11} className="text-white" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-sky-800 mb-0.5">
-                Credenciais — {DEMO.label}
-              </p>
-              <p className="text-xs text-sky-700 font-mono">{DEMO.email}</p>
-              <p className="text-xs text-sky-700 font-mono">{DEMO.password}</p>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
@@ -69,7 +73,9 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={DEMO.email}
+                  placeholder="seu.email@escola.com"
+                  autoComplete="username"
+                  disabled={enviando}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2C3A]/20 focus:border-[#0D2C3A] transition-all"
                 />
               </div>
@@ -88,26 +94,30 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  autoComplete="current-password"
+                  disabled={enviando}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2C3A]/20 focus:border-[#0D2C3A] transition-all"
                 />
               </div>
             </div>
 
-            {error && (
+            {mensagem && (
               <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3">
                 <AlertCircle
                   size={14}
                   className="text-red-500 flex-shrink-0 mt-0.5"
                 />
-                <p className="text-xs text-red-700 font-medium">{error}</p>
+                <p className="text-xs text-red-700 font-medium">{mensagem}</p>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-[#0D2C3A] text-white rounded-xl font-bold text-sm hover:bg-[#1A4A60] transition-colors mt-1"
+              disabled={enviando}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#0D2C3A] text-white rounded-xl font-bold text-sm hover:bg-[#1A4A60] transition-colors mt-1 disabled:opacity-70 disabled:cursor-wait"
             >
-              Entrar na plataforma
+              {enviando && <Loader2 size={15} className="animate-spin" />}
+              {enviando ? "Entrando..." : "Entrar na plataforma"}
             </button>
           </form>
 

@@ -5,6 +5,8 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { SkollaLogo } from "@/components/SkollaLogo";
+import { useAuth } from "@/contexts/AuthContext";
+import { ROTULO_PAPEL } from "@/types/enums";
 
 type ItemMenu = {
   icon: React.ElementType;
@@ -26,16 +28,21 @@ const SIDEBAR_NAV: ItemMenu[] = [
   { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: false },
 ];
 
-const SIDEBAR_USER = { name: "Secretaria SKOLLA", sub: "Gestor" };
-
 export function Sidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const user = SIDEBAR_USER;
+  const { usuario, sair } = useAuth();
+  const user = {
+    name: usuario?.nome ?? "",
+    sub: usuario ? `${ROTULO_PAPEL[usuario.papel]} • ${usuario.email}` : "",
+  };
   const items = SIDEBAR_NAV;
 
   const isActive = (to: string) => pathname === to || pathname.startsWith(to + "/");
-  const onLogout = () => navigate("/login");
+  const onLogout = () => {
+    sair();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <nav className="w-64 flex-shrink-0 bg-[#0D2C3A] flex flex-col h-full">
