@@ -28,6 +28,7 @@ export function AppRoutes() {
 
           <Route path="/professores" element={<ProfessoresPage />} />
           <Route path="/professores/novo" element={<ProfessorFormPage />} />
+          <Route path="/professores/:id/editar" element={<ProfessorFormPage />} />
 
           <Route path="/turmas" element={<TurmasPage />} />
           <Route path="/turmas/:id" element={<TurmaDetalhePage />} />
