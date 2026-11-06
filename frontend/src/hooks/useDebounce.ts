@@ -1,0 +1,11 @@
+import { useEffect, useState } from "react";
+
+/** Devolve o valor só depois de `atraso` ms sem mudanças (para buscas enquanto digita). */
+export function useDebounce<T>(valor: T, atraso = 350): T {
+  const [atrasado, setAtrasado] = useState(valor);
+  useEffect(() => {
+    const t = setTimeout(() => setAtrasado(valor), atraso);
+    return () => clearTimeout(t);
+  }, [valor, atraso]);
+  return atrasado;
+}
