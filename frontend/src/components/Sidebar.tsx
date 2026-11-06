@@ -8,24 +8,18 @@ import { SkollaLogo } from "@/components/SkollaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROTULO_PAPEL } from "@/types/enums";
 
-type ItemMenu = {
-  icon: React.ElementType;
-  label: string;
-  to: string;
-  // false = tela ainda não implementada (aparece desabilitada)
-  pronto: boolean;
-};
+type ItemMenu = { icon: React.ElementType; label: string; to: string };
 
 const SIDEBAR_NAV: ItemMenu[] = [
-  { icon: LayoutDashboard, label: "Dashboard",             to: "/dashboard",     pronto: true  },
-  { icon: Users,           label: "Gestão de Alunos",      to: "/alunos",        pronto: true  },
-  { icon: GraduationCap,   label: "Gestão de Professores", to: "/professores",   pronto: true  },
-  { icon: BookOpen,        label: "Gestão de Turmas",      to: "/turmas",        pronto: true  },
-  { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: true  },
-  { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: true  },
-  { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: true  },
-  { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: true  },
-  { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: true  },
+  { icon: LayoutDashboard, label: "Dashboard",             to: "/dashboard"    },
+  { icon: Users,           label: "Gestão de Alunos",      to: "/alunos"       },
+  { icon: GraduationCap,   label: "Gestão de Professores", to: "/professores"  },
+  { icon: BookOpen,        label: "Gestão de Turmas",      to: "/turmas"       },
+  { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas"  },
+  { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos" },
+  { icon: Layers,          label: "Alocações",             to: "/alocacoes"    },
+  { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas"   },
+  { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios"     },
 ];
 
 export function Sidebar() {
@@ -52,19 +46,6 @@ export function Sidebar() {
 
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
         {items.map((item) => {
-          if (!item.pronto) {
-            return (
-              <div
-                key={item.to}
-                title="Em breve"
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/25 cursor-not-allowed select-none"
-              >
-                <item.icon size={16} />
-                <span className="flex-1 text-left">{item.label}</span>
-                <span className="text-[9px] font-bold uppercase tracking-wider text-white/25">Em breve</span>
-              </div>
-            );
-          }
           const active = isActive(item.to);
           return (
             <button

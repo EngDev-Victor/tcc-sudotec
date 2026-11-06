@@ -1,11 +1,11 @@
-// Janela modal no visual SKOLLA, sobre o Dialog (Radix) do shadcn já presente no projeto.
+// Janela modal no visual SKOLLA, sobre o Dialog (Radix) do shadcn.
 
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
-} from "@/app/components/ui/dialog";
+} from "@/components/ui/dialog";
 
 // Classes escritas por extenso para o Tailwind encontrá-las no código
 const LARGURAS = {
