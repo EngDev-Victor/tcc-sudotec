@@ -73,10 +73,17 @@ try {
     }
   }
 
+  # O Prisma e o npm escrevem avisos em stderr (ex.: "Loaded Prisma config from prisma.config.js.").
+  # Com 'Stop', o PowerShell 5.1 trata essas linhas como erro quando a saída está redirecionada.
+  # O resultado vem do $LASTEXITCODE.
+  $ErrorActionPreference = 'Continue'
   & npx prisma migrate deploy
-  if ($LASTEXITCODE -ne 0) { Falhar 'prisma migrate deploy falhou' }
+  $codMigrate = $LASTEXITCODE
   & npm run seed
-  if ($LASTEXITCODE -ne 0) { Falhar 'seed falhou' }
+  $codSeed = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($codMigrate -ne 0) { Falhar 'prisma migrate deploy falhou' }
+  if ($codSeed -ne 0) { Falhar 'seed falhou' }
 
   # ---------- 5. Subir a API na porta de teste ----------
   Etapa "Subindo a API na porta $Porta"
