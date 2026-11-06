@@ -1,6 +1,6 @@
 # SKOLLA — Contrato da API (módulo Gestor)
 
-Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (239 verificações), executado num banco de teste separado com `backend/scripts/testar-com-banco-teste.ps1`, que confere que o `dev.db` continua intacto (SHA-256 igual antes e depois).
+Documento gerado a partir do código do back-end (`backend/src`) em 04/11/2026, após a etapa 6 (segurança), as correções de regra e os ajustes da revisão do back-end. Atualizado em 06/11/2026 com a regra do período do ano letivo (6.4). O comportamento descrito aqui é coberto pelo script `backend/scripts/testar-api.ps1` (246 verificações), executado num banco de teste separado com `backend/scripts/testar-com-banco-teste.ps1`, que confere que o `dev.db` continua intacto (SHA-256 igual antes e depois).
 
 ---
 
