@@ -1,38 +1,41 @@
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, LogOut,
+  BookMarked, CalendarDays, Layers, ClipboardList, KeyRound,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { SkollaLogo } from "@/components/SkollaLogo";
-import type { Screen } from "@/types/navigation";
 
-const SIDEBAR_NAV: { icon: React.ElementType; label: string; screen: Screen }[] = [
-  { icon: LayoutDashboard, label: "Dashboard",             screen: "admin-dashboard" },
-  { icon: Users,           label: "Gestão de Alunos",      screen: "admin-students"  },
-  { icon: GraduationCap,   label: "Gestão de Professores", screen: "admin-teachers"  },
-  { icon: BookOpen,        label: "Gestão de Turmas",      screen: "admin-classes"   },
+type ItemMenu = {
+  icon: React.ElementType;
+  label: string;
+  to: string;
+  // false = tela ainda não implementada (aparece desabilitada)
+  pronto: boolean;
+};
+
+const SIDEBAR_NAV: ItemMenu[] = [
+  { icon: LayoutDashboard, label: "Dashboard",             to: "/dashboard",     pronto: true  },
+  { icon: Users,           label: "Gestão de Alunos",      to: "/alunos",        pronto: true  },
+  { icon: GraduationCap,   label: "Gestão de Professores", to: "/professores",   pronto: true  },
+  { icon: BookOpen,        label: "Gestão de Turmas",      to: "/turmas",        pronto: true  },
+  { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: false },
+  { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: false },
+  { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: false },
+  { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: false },
+  { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: false },
 ];
 
 const SIDEBAR_USER = { name: "Secretaria SKOLLA", sub: "Gestor" };
 
-export function Sidebar({
-  screen,
-  onNavigate,
-  onLogout,
-}: {
-  screen: Screen;
-  onNavigate: (s: Screen) => void;
-  onLogout: () => void;
-}) {
+export function Sidebar() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const user = SIDEBAR_USER;
   const items = SIDEBAR_NAV;
 
-  const isActive = (s: Screen) => {
-    if (screen === s) return true;
-    if (s === "admin-students" && screen === "admin-student-form") return true;
-    if (s === "admin-teachers" && screen === "admin-teacher-form") return true;
-    if (s === "admin-classes" && screen === "admin-class-detail") return true;
-    return false;
-  };
+  const isActive = (to: string) => pathname === to || pathname.startsWith(to + "/");
+  const onLogout = () => navigate("/login");
 
   return (
     <nav className="w-64 flex-shrink-0 bg-[#0D2C3A] flex flex-col h-full">
@@ -42,11 +45,24 @@ export function Sidebar({
 
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
         {items.map((item) => {
-          const active = isActive(item.screen);
+          if (!item.pronto) {
+            return (
+              <div
+                key={item.to}
+                title="Em breve"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/25 cursor-not-allowed select-none"
+              >
+                <item.icon size={16} />
+                <span className="flex-1 text-left">{item.label}</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-white/25">Em breve</span>
+              </div>
+            );
+          }
+          const active = isActive(item.to);
           return (
             <button
-              key={item.screen}
-              onClick={() => onNavigate(item.screen)}
+              key={item.to}
+              onClick={() => navigate(item.to)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                 active
                   ? "bg-white/[0.12] text-white"

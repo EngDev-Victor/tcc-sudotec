@@ -2,19 +2,18 @@ import { useState } from "react";
 import {
   Save,
 } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
 import { Card } from "@/components/Card";
 import { InputField } from "@/components/InputField";
 import { PageHeader } from "@/components/PageHeader";
 import { SelectField } from "@/components/SelectField";
 import { CLASSES_DATA, STUDENTS } from "@/mocks/dados";
 
-export function AlunoFormPage({
-  student,
-  onBack,
-}: {
-  student?: (typeof STUDENTS)[number];
-  onBack: () => void;
-}) {
+export function AlunoFormPage() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const student = id ? STUDENTS.find((s) => s.id === Number(id)) : undefined;
+  const onBack = () => navigate("/alunos");
   const isEditing = Boolean(student);
   const [f, setF] = useState({
     name: student?.name ?? "",

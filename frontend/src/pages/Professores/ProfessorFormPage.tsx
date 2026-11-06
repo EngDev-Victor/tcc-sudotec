@@ -2,12 +2,15 @@ import { useState } from "react";
 import {
   Save,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { Card } from "@/components/Card";
 import { InputField } from "@/components/InputField";
 import { PageHeader } from "@/components/PageHeader";
 import { SelectField } from "@/components/SelectField";
 
-export function ProfessorFormPage({ onBack }: { onBack: () => void }) {
+export function ProfessorFormPage() {
+  const navigate = useNavigate();
+  const onBack = () => navigate("/professores");
   const [f, setF] = useState({ name: "", email: "", subject: "", degree: "", phone: "" });
   const s = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
   const subjects = ["Matemática", "Português", "Ciências", "História", "Geografia", "Inglês", "Ed. Física", "Arte"];

@@ -4,15 +4,12 @@ import {
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { CLASSES_DATA } from "@/mocks/dados";
-import type { Screen } from "@/types/navigation";
+import { useNavigate } from "react-router";
 
-export function TurmasPage({
-  onNavigate,
-  onOpenClassDetail,
-}: {
-  onNavigate: (s: Screen) => void;
-  onOpenClassDetail: (classId: number, tab: "students" | "teachers") => void;
-}) {
+export function TurmasPage() {
+  const navigate = useNavigate();
+  const onOpenClassDetail = (classId: number, tab: "students" | "teachers") =>
+    navigate(`/turmas/${classId}${tab === "teachers" ? "?aba=professores" : ""}`);
   return (
     <div className="p-8">
       <PageHeader

@@ -8,9 +8,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TEACHERS } from "@/mocks/dados";
-import type { Screen } from "@/types/navigation";
+import { useNavigate } from "react-router";
 
-export function ProfessoresPage({ onNavigate }: { onNavigate: (s: Screen) => void }) {
+export function ProfessoresPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const filtered = TEACHERS.filter(
     (t) =>
@@ -25,7 +26,7 @@ export function ProfessoresPage({ onNavigate }: { onNavigate: (s: Screen) => voi
         subtitle={`${TEACHERS.length} professores cadastrados`}
         actions={
           <button
-            onClick={() => onNavigate("admin-teacher-form")}
+            onClick={() => navigate("/professores/novo")}
             className="flex items-center gap-2 px-4 py-2 bg-[#0D2C3A] text-white rounded-xl text-sm font-bold hover:bg-[#1A4A60] transition-colors"
           >
             <Plus size={14} />
@@ -80,7 +81,7 @@ export function ProfessoresPage({ onNavigate }: { onNavigate: (s: Screen) => voi
                         <Eye size={14} className="text-muted-foreground" />
                       </button>
                       <button
-                        onClick={() => onNavigate("admin-teacher-form")}
+                        onClick={() => navigate("/professores/novo")}
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                       >
                         <Edit size={14} className="text-muted-foreground" />

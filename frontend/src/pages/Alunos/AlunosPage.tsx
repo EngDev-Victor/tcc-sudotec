@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Plus, Edit, Trash2, Eye,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
@@ -9,13 +10,10 @@ import { SearchInput } from "@/components/SearchInput";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STUDENTS } from "@/mocks/dados";
 
-export function AlunosPage({
-  onCreate,
-  onEdit,
-}: {
-  onCreate: () => void;
-  onEdit: (studentId: number) => void;
-}) {
+export function AlunosPage() {
+  const navigate = useNavigate();
+  const onCreate = () => navigate("/alunos/novo");
+  const onEdit = (studentId: number) => navigate(`/alunos/${studentId}/editar`);
   const [search, setSearch] = useState("");
   const filtered = STUDENTS.filter(
     (s) =>

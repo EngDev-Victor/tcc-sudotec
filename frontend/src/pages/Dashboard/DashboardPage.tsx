@@ -15,9 +15,10 @@ import { Card } from "@/components/Card";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CHART_DATA, STUDENTS } from "@/mocks/dados";
-import type { Screen } from "@/types/navigation";
+import { useNavigate } from "react-router";
 
-export function DashboardPage({ onNavigate }: { onNavigate: (s: Screen) => void }) {
+export function DashboardPage() {
+  const navigate = useNavigate();
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -28,7 +29,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (s: Screen) => void 
           </p>
         </div>
         <button
-          onClick={() => onNavigate("admin-student-form")}
+          onClick={() => navigate("/alunos/novo")}
           className="flex items-center gap-2 px-4 py-2 bg-[#0D2C3A] text-white rounded-xl text-sm font-bold hover:bg-[#1A4A60] transition-colors"
         >
           <Plus size={14} />
@@ -92,7 +93,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (s: Screen) => void 
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-black text-foreground">Últimas Matrículas</h3>
             <button
-              onClick={() => onNavigate("admin-students")}
+              onClick={() => navigate("/alunos")}
               className="text-xs text-sky-600 hover:text-sky-700 font-bold transition-colors"
             >
               Ver todos
@@ -115,13 +116,13 @@ export function DashboardPage({ onNavigate }: { onNavigate: (s: Screen) => void 
 
       <div className="mt-6 grid grid-cols-3 gap-4">
         {[
-          { label: "Novo Aluno",      icon: UserCheck,    screen: "admin-student-form" as Screen, color: "#0D2C3A" },
-          { label: "Novo Professor",  icon: GraduationCap, screen: "admin-teacher-form" as Screen, color: "#0EA5E9" },
-          { label: "Nova Turma",      icon: BookOpen,     screen: "admin-classes"       as Screen, color: "#8B5CF6" },
+          { label: "Novo Aluno",      icon: UserCheck,    to: "/alunos/novo", color: "#0D2C3A" },
+          { label: "Novo Professor",  icon: GraduationCap, to: "/professores/novo", color: "#0EA5E9" },
+          { label: "Nova Turma",      icon: BookOpen,     to: "/turmas", color: "#8B5CF6" },
         ].map((a) => (
           <button
             key={a.label}
-            onClick={() => onNavigate(a.screen)}
+            onClick={() => navigate(a.to)}
             className="flex items-center gap-3 p-4 bg-white rounded-xl border border-border hover:border-[#0D2C3A]/20 hover:shadow-md transition-all group"
           >
             <div

@@ -2,10 +2,12 @@ import { useState } from "react";
 import {
   AlertCircle, Lock, Mail, Check,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { AuthLeftPanel } from "@/components/AuthLeftPanel";
 import { SkollaLogo } from "@/components/SkollaLogo";
 
-export function LoginPage({ onLogin }: { onLogin: () => void }) {
+export function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,7 +18,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email === DEMO.email && password === DEMO.password) {
-      onLogin();
+      navigate("/dashboard");
     } else {
       setError("E-mail ou senha incorretos. Use as credenciais de demonstração abaixo.");
       setTimeout(() => setError(""), 4500);

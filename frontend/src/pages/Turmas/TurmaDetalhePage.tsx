@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Users, GraduationCap, Percent,
 } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
@@ -9,15 +10,13 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CLASSES_DATA, CLASS_STUDENTS_MAP, CLASS_TEACHERS_MAP, STUDENTS, TEACHERS } from "@/mocks/dados";
 
-export function TurmaDetalhePage({
-  classId,
-  initialTab,
-  onBack,
-}: {
-  classId: number;
-  initialTab: "students" | "teachers";
-  onBack: () => void;
-}) {
+export function TurmaDetalhePage() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const classId = Number(id);
+  const initialTab = searchParams.get("aba") === "professores" ? "teachers" : "students";
+  const onBack = () => navigate("/turmas");
   const [tab, setTab] = useState<"students" | "teachers">(initialTab);
   const cls = CLASSES_DATA.find((c) => c.id === classId) ?? CLASSES_DATA[0];
 
