@@ -30,15 +30,6 @@ export const CLASSES_DATA = [
   { id: 6, name: "9º Ano B", period: "Tarde", students: 33, teachers: 8, room: "Sala 15" },
 ];
 
-export const CHART_DATA = [
-  { month: "Mar", freq: 96 },
-  { month: "Abr", freq: 94 },
-  { month: "Mai", freq: 92 },
-  { month: "Jun", freq: 89 },
-  { month: "Jul", freq: 94 },
-  { month: "Ago", freq: 94 },
-];
-
 export const CLASS_TEACHERS_MAP: Record<number, number[]> = {
   1: [1, 2, 3, 4, 5], 2: [1, 2, 3, 4, 5],
   3: [1, 2, 3, 4, 6], 4: [1, 2, 3, 4, 6],
