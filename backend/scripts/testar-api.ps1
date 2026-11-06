@@ -836,6 +836,31 @@ if ($anoId) {
   Verificar "campo invalido no PUT nao gera aviso de 'nenhum campo'" (@($dv2.Dados.detalhes | Where-Object { $_ }).Count -eq 1)
 }
 
+# ---------- W. Periodo dentro do ano letivo ----------
+Write-Host "`n== Periodo do ano letivo ==" -ForegroundColor Cyan
+$pw1 = ReqErro POST "/anos-letivos" @{ ano = 2099; dataInicio = "2098-02-01"; dataFim = "2099-12-01" } $tk
+Verificar "inicio fora do ano -> 400 em dataInicio" ($pw1.Status -eq 400 -and (MsgCampo $pw1 "dataInicio") -match 'deve estar no ano 2099')
+$pw2 = ReqErro POST "/anos-letivos" @{ ano = 2099; dataInicio = "2099-02-01"; dataFim = "2100-01-10" } $tk
+Verificar "termino no ano seguinte -> 400 em dataFim" ($pw2.Status -eq 400 -and (MsgCampo $pw2 "dataFim") -match 'deve estar no ano 2099')
+
+$usadosW = @((Req GET "/anos-letivos" $null $tk).Dados | ForEach-Object { $_.ano })
+$anoW = 2060
+while ($usadosW -contains $anoW) { $anoW++ }
+$anoWr = Req POST "/anos-letivos" @{ ano = $anoW; dataInicio = "$anoW-01-02"; dataFim = "$anoW-12-31" } $tk
+Verificar "periodo de 02/01 a 31/12 do proprio ano -> 201" ($anoWr.Status -eq 201)
+if ($anoWr.Status -eq 201) {
+  $idW = $anoWr.Dados.id
+  $outroW = $anoW + 1
+  while ($usadosW -contains $outroW) { $outroW++ }
+  $pw3 = ReqErro PUT "/anos-letivos/$idW" @{ ano = $outroW } $tk
+  Verificar "PUT so do ano, sem mover as datas -> 400" ($pw3.Status -eq 400 -and [string]$pw3.Dados.error -match 'deve estar no ano')
+  $pw4 = ReqErro PUT "/anos-letivos/$idW" @{ dataInicio = "$($anoW - 1)-12-01" } $tk
+  Verificar "PUT so do inicio, fora do ano gravado -> 400" ($pw4.Status -eq 400)
+  $pw5 = Req PUT "/anos-letivos/$idW" @{ ano = $outroW; dataInicio = "$outroW-02-01"; dataFim = "$outroW-12-01" } $tk
+  Verificar "PUT com ano e datas coerentes -> 200" ($pw5.Status -eq 200)
+  Verificar "limpeza: DELETE ano letivo do teste de periodo -> 204" ((Req DELETE "/anos-letivos/$idW" $null $tk).Status -eq 204)
+}
+
 # ---------- Resumo ----------
 Write-Host ""
 $cor = "Green"

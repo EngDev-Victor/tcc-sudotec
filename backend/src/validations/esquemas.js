@@ -183,6 +183,31 @@ const anoLetivoBase = z.object({
   dataFim: data,
 });
 
+// O período precisa pertencer ao ano letivo: início e término no próprio ano.
+// Só confere quando o ano e a data vieram juntos e válidos; no PUT parcial, o
+// controller confere a combinação com os valores já gravados.
+const anoDaData = (valor) => Number(valor.slice(0, 4));
+const semErros = (contexto) => contexto.issues.length === 0;
+
+const regrasDoAnoLetivo = (schema) =>
+  schema
+    .refine(
+      (d) => d.ano === undefined || d.dataInicio === undefined || anoDaData(d.dataInicio) === d.ano,
+      {
+        error: (problema) => `A data de início deve estar no ano ${problema.input.ano}.`,
+        path: ['dataInicio'],
+        when: semErros,
+      }
+    )
+    .refine(
+      (d) => d.ano === undefined || d.dataFim === undefined || anoDaData(d.dataFim) === d.ano,
+      {
+        error: (problema) => `A data de término deve estar no ano ${problema.input.ano}.`,
+        path: ['dataFim'],
+        when: semErros,
+      }
+    );
+
 const PAPEIS = ['GESTOR', 'PROFESSOR', 'ALUNO', 'RESPONSAVEL'];
 
 export const esquemas = {
@@ -223,11 +248,13 @@ export const esquemas = {
   alocacao: { criar: alocacaoBase, atualizar: atualizacao(alocacaoBase) },
 
   anoLetivo: {
-    criar: anoLetivoBase.refine((d) => new Date(d.dataFim) > new Date(d.dataInicio), {
-      message: 'A data de fim deve ser posterior à data de início.',
-      path: ['dataFim'],
-    }),
-    atualizar: atualizacao(anoLetivoBase),
+    criar: regrasDoAnoLetivo(
+      anoLetivoBase.refine((d) => new Date(d.dataFim) > new Date(d.dataInicio), {
+        message: 'A data de fim deve ser posterior à data de início.',
+        path: ['dataFim'],
+      })
+    ),
+    atualizar: regrasDoAnoLetivo(atualizacao(anoLetivoBase)),
   },
 
   matricula: {

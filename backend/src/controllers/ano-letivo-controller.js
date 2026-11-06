@@ -24,6 +24,18 @@ function validarPeriodo(inicio, fim) {
   }
 }
 
+// Início e término precisam estar no próprio ano.
+// Mesma regra do esquema de validação, aplicada aqui sobre a combinação final
+// (campos enviados + valores já gravados), para cobrir o PUT parcial.
+function validarPeriodoDoAno(ano, inicio, fim) {
+  if (inicio.getUTCFullYear() !== ano) {
+    throw new ErroHttp(400, `A data de início deve estar no ano ${ano}.`);
+  }
+  if (fim.getUTCFullYear() !== ano) {
+    throw new ErroHttp(400, `A data de término deve estar no ano ${ano}.`);
+  }
+}
+
 export const anoLetivoController = {
   async listar(req, res) {
     const anos = await prisma.anoLetivo.findMany({
@@ -50,9 +62,11 @@ export const anoLetivoController = {
     const inicio = lerData(dataInicio, 'dataInicio');
     const fim = lerData(dataFim, 'dataFim');
     validarPeriodo(inicio, fim);
+    const anoNumero = lerAno(ano);
+    validarPeriodoDoAno(anoNumero, inicio, fim);
 
     const criado = await prisma.anoLetivo.create({
-      data: { ano: lerAno(ano), dataInicio: inicio, dataFim: fim },
+      data: { ano: anoNumero, dataInicio: inicio, dataFim: fim },
     });
     return res.status(201).json(criado);
   },
@@ -67,7 +81,10 @@ export const anoLetivoController = {
     if (dataInicio !== undefined) data.dataInicio = lerData(dataInicio, 'dataInicio');
     if (dataFim !== undefined) data.dataFim = lerData(dataFim, 'dataFim');
 
-    validarPeriodo(data.dataInicio ?? atual.dataInicio, data.dataFim ?? atual.dataFim);
+    const inicioFinal = data.dataInicio ?? atual.dataInicio;
+    const fimFinal = data.dataFim ?? atual.dataFim;
+    validarPeriodo(inicioFinal, fimFinal);
+    validarPeriodoDoAno(data.ano ?? atual.ano, inicioFinal, fimFinal);
 
     const atualizado = await prisma.anoLetivo.update({ where: { id }, data });
     return res.json(atualizado);

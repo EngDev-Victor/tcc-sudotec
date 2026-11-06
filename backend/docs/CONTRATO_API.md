@@ -378,13 +378,23 @@ O AnoLetivo com `turmas: [ ... ]`.
 | Campo | Tipo | Regra |
 |---|---|---|
 | `ano` | inteiro | obrigatório, 2000 a 2100, único |
-| `dataInicio` | data `AAAA-MM-DD` | obrigatório |
-| `dataFim` | data `AAAA-MM-DD` | obrigatório, posterior a `dataInicio` |
+| `dataInicio` | data `AAAA-MM-DD` | obrigatório, **dentro do próprio ano** |
+| `dataFim` | data `AAAA-MM-DD` | obrigatório, posterior a `dataInicio`, **dentro do próprio ano** |
+
+O período inteiro precisa estar dentro do ano letivo:
+
+| Situação | Resposta |
+|---|---|
+| `ano: 2027`, `dataInicio: "2026-12-01"` | `400`, detalhe em `dataInicio`: `A data de início deve estar no ano 2027.` |
+| `ano: 2027`, `dataFim: "2028-01-31"` | `400`, detalhe em `dataFim`: `A data de término deve estar no ano 2027.` |
+| `ano: 2027`, `dataInicio: "2027-02-01"`, `dataFim: "2027-12-15"` | aceito |
 
 O ano nasce **inativo** (`ativo: false`). Erros: `400`, `409` (`campos: ["ano"]`).
 
 #### `PUT /anos-letivos/:id` → `200`
-Mesmos campos, todos opcionais (ao menos um). O período continua validado contra as datas já gravadas.
+Mesmos campos, todos opcionais (ao menos um). O período e a regra do ano valem para a **combinação final** (campos enviados + valores já gravados):
+- se `ano`, `dataInicio` e `dataFim` vierem juntos, o erro sai em `detalhes`, no campo, como no `POST`;
+- se vier só parte deles (ex.: só `ano`), a conferência é feita com os valores gravados, e o erro sai só em `error` (sem `detalhes`). Exemplo: mudar só o `ano` de 2025 para 2027, sem mover as datas → `400` `A data de início deve estar no ano 2027.`.
 
 #### `PATCH /anos-letivos/:id/ativar` → `200` (AnoLetivo)
 Sem corpo. Ativa este ano e desativa todos os outros: **só um ano letivo fica ativo por vez**.
@@ -773,5 +783,6 @@ Não existe `DELETE /matriculas/:id`: a resposta é `404` de rota inexistente.
 - **Regra "uma matrícula `ATIVA` por ano" protegida só pela aplicação**: no SQLite, a transação atual garante a regra mesmo com pedidos simultâneos. Na migração para o **PostgreSQL**, é obrigatório reforçá-la no banco: um índice único parcial (aluno + ano letivo onde `status = 'ATIVA'`), o que exige guardar o `anoLetivoId` também na matrícula.
 - **Migrations**: em 05/11/2026, as 6 migrations do desenvolvimento foram consolidadas numa única migration inicial (`20261105100000_inicial`), conferida contra o `dev.db` (mesma estrutura e mesmos dados). Novas migrations seguem as regras de `docs/MIGRATIONS.md`, que exigem coluna obrigatória nova com valor padrão ou criada em etapas.
 - **Busca e ordenação em memória**: `GET /alunos` e `GET /professores` carregam `id` e `nome` de todos os registros que passam nos filtros, filtram a busca e ordenam em JavaScript, e só então buscam a página. Isso é suficiente para o porte de uma escola. Melhoria futura: levar a busca e a ordenação para o banco.
+- **Anos letivos antigos com período fora do ano**: a regra do período (6.4) vale desde 06/11/2026. Registros criados antes podem estar inconsistentes; eles continuam no banco e são corrigidos pelo `PUT`, que já exige a regra.
 - **Listagens sem paginação**: `/usuarios`, `/anos-letivos`, `/disciplinas`, `/turmas` e `/alocacoes` devolvem tudo de uma vez.
 - **Módulos Professor, Aluno e Responsável**: fora do escopo deste MVP. Esses papéis só conseguem usar `/auth/login` e `/auth/me`.
