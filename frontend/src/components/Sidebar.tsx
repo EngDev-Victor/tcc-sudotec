@@ -21,7 +21,7 @@ const SIDEBAR_NAV: ItemMenu[] = [
   { icon: Users,           label: "Gestão de Alunos",      to: "/alunos",        pronto: true  },
   { icon: GraduationCap,   label: "Gestão de Professores", to: "/professores",   pronto: true  },
   { icon: BookOpen,        label: "Gestão de Turmas",      to: "/turmas",        pronto: true  },
-  { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: false },
+  { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: true  },
   { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: true  },
   { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: false },
   { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: false },

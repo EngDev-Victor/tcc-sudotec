@@ -10,6 +10,7 @@ import { ProfessorFormPage } from "@/pages/Professores/ProfessorFormPage";
 import { TurmasPage } from "@/pages/Turmas/TurmasPage";
 import { TurmaDetalhePage } from "@/pages/Turmas/TurmaDetalhePage";
 import { AnosLetivosPage } from "@/pages/AnosLetivos/AnosLetivosPage";
+import { DisciplinasPage } from "@/pages/Disciplinas/DisciplinasPage";
 
 export function AppRoutes() {
   return (
@@ -32,6 +33,7 @@ export function AppRoutes() {
           <Route path="/turmas/:id" element={<TurmaDetalhePage />} />
 
           <Route path="/anos-letivos" element={<AnosLetivosPage />} />
+          <Route path="/disciplinas" element={<DisciplinasPage />} />
         </Route>
       </Route>
 
