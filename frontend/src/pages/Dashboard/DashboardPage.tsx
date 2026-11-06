@@ -132,9 +132,22 @@ export function DashboardPage() {
       {dados && (
         <div className={carregando ? "opacity-60 transition-opacity" : "transition-opacity"}>
           {!dados.anoLetivo && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-800 font-medium">{dados.aviso}</p>
+            // O texto da API (dados.aviso) cita o parâmetro ?anoLetivoId=, que é para quem usa a API;
+            // aqui o gestor recebe a orientação de como resolver pela interface
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex-wrap">
+              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-800 font-medium flex-1">
+                {anos.length === 0
+                  ? "Nenhum ano letivo cadastrado. Cadastre e ative um ano letivo para começar."
+                  : "Nenhum ano letivo ativo. Ative um ano letivo para ver os indicadores do ano."}
+              </p>
+              <button
+                onClick={() => navigate("/anos-letivos")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-amber-200 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+              >
+                Ir para Anos Letivos
+                <ChevronRight size={12} />
+              </button>
             </div>
           )}
 
