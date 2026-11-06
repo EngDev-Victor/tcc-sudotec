@@ -23,7 +23,7 @@ const SIDEBAR_NAV: ItemMenu[] = [
   { icon: BookOpen,        label: "Gestão de Turmas",      to: "/turmas",        pronto: true  },
   { icon: BookMarked,      label: "Disciplinas",           to: "/disciplinas",   pronto: true  },
   { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: true  },
-  { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: false },
+  { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: true  },
   { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: false },
   { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: false },
 ];

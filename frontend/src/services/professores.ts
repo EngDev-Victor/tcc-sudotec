@@ -45,3 +45,18 @@ export function atualizarProfessor(id: number, dados: Partial<DadosProfessor>): 
 export function alterarAtivoProfessor(id: number, ativo: boolean): Promise<Professor> {
   return api.patch<Professor>(`/professores/${id}/ativo`, { ativo });
 }
+
+/**
+ * Todos os professores que passam no filtro, percorrendo as páginas (limite máximo da API: 100).
+ * Usado para preencher listas de seleção.
+ */
+export async function listarTodosProfessores(filtros: Omit<FiltrosProfessores, "pagina" | "limite"> = {}): Promise<Professor[]> {
+  const todos: Professor[] = [];
+  let pagina = 1;
+  for (;;) {
+    const r = await listarProfessores({ ...filtros, pagina, limite: 100 });
+    todos.push(...r.dados);
+    if (pagina >= r.paginacao.totalPaginas) return todos;
+    pagina++;
+  }
+}

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Users, GraduationCap, BookMarked, Loader2, AlertCircle, Edit } from "lucide-react";
+import { Users, GraduationCap, BookMarked, Loader2, AlertCircle, Edit, Layers } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { Badge } from "@/components/Badge";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { BTN_ICONE } from "@/components/estilos";
+import { BTN_ICONE, BTN_SECUNDARIO } from "@/components/estilos";
 import { buscarTurma } from "@/services/turmas";
 import type { TurmaDetalhe } from "@/types/entidades";
 import { ROTULO_TURNO } from "@/types/enums";
@@ -76,6 +76,12 @@ export function TurmaDetalhePage() {
         title={turma.nome}
         subtitle={`${ROTULO_TURNO[turma.turno]} • ${turma.sala} • Ano letivo ${turma.anoLetivo.ano}`}
         onBack={voltar}
+        actions={
+          <button className={BTN_SECUNDARIO} onClick={() => navigate(`/alocacoes?turmaId=${turma.id}`)}>
+            <Layers size={14} />
+            Gerenciar alocações
+          </button>
+        }
       />
 
       <div className="grid grid-cols-3 gap-4 mb-6">

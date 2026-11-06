@@ -11,6 +11,7 @@ import { TurmasPage } from "@/pages/Turmas/TurmasPage";
 import { TurmaDetalhePage } from "@/pages/Turmas/TurmaDetalhePage";
 import { AnosLetivosPage } from "@/pages/AnosLetivos/AnosLetivosPage";
 import { DisciplinasPage } from "@/pages/Disciplinas/DisciplinasPage";
+import { AlocacoesPage } from "@/pages/Alocacoes/AlocacoesPage";
 
 export function AppRoutes() {
   return (
@@ -35,6 +36,7 @@ export function AppRoutes() {
 
           <Route path="/anos-letivos" element={<AnosLetivosPage />} />
           <Route path="/disciplinas" element={<DisciplinasPage />} />
+          <Route path="/alocacoes" element={<AlocacoesPage />} />
         </Route>
       </Route>
 
