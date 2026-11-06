@@ -273,6 +273,7 @@ export function DashboardPage() {
 }
 
 function Pendencias({ dados }: { dados: DashboardComAno }) {
+  const navigate = useNavigate();
   const { turmasSemProfessor, turmasSemAlunos, alunosSemMatriculaAtiva } = dados.pendencias;
   const semPendencias =
     turmasSemProfessor.length === 0 && turmasSemAlunos.length === 0 && alunosSemMatriculaAtiva.total === 0;
@@ -301,13 +302,17 @@ function Pendencias({ dados }: { dados: DashboardComAno }) {
               </p>
               <div className="space-y-2.5">
                 {alunosSemMatriculaAtiva.itens.slice(0, 5).map((a) => (
-                  <div key={a.id} className="flex items-center gap-3">
+                  <button
+                    key={a.id}
+                    onClick={() => navigate(`/alunos/${a.id}/editar`)}
+                    className="w-full flex items-center gap-3 text-left rounded-lg hover:bg-[#F8FAFB] transition-colors"
+                  >
                     <AvatarIcon name={a.nome} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-foreground truncate">{a.nome}</p>
                       <p className="text-xs text-muted-foreground">Matrícula {a.matricula}</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
                 {alunosSemMatriculaAtiva.total > 5 && (
                   <p className="text-xs text-muted-foreground font-medium">
@@ -324,6 +329,7 @@ function Pendencias({ dados }: { dados: DashboardComAno }) {
 }
 
 function ListaTurmas({ titulo, turmas }: { titulo: string; turmas: { id: number; nome: string }[] }) {
+  const navigate = useNavigate();
   return (
     <div>
       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2">
@@ -331,12 +337,14 @@ function ListaTurmas({ titulo, turmas }: { titulo: string; turmas: { id: number;
       </p>
       <div className="flex flex-wrap gap-1.5">
         {turmas.slice(0, MAX_TURMAS_PENDENCIA).map((t) => (
-          <span
+          <button
             key={t.id}
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+            onClick={() => navigate(`/turmas/${t.id}`)}
+            title="Abrir turma"
+            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
           >
             {t.nome}
-          </span>
+          </button>
         ))}
         {turmas.length > MAX_TURMAS_PENDENCIA && (
           <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-muted-foreground">
