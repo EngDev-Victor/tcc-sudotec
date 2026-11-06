@@ -25,7 +25,7 @@ const SIDEBAR_NAV: ItemMenu[] = [
   { icon: CalendarDays,    label: "Anos Letivos",          to: "/anos-letivos",  pronto: true  },
   { icon: Layers,          label: "Alocações",             to: "/alocacoes",     pronto: true  },
   { icon: ClipboardList,   label: "Matrículas",            to: "/matriculas",    pronto: true  },
-  { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: false },
+  { icon: KeyRound,        label: "Contas de Acesso",      to: "/usuarios",      pronto: true  },
 ];
 
 export function Sidebar() {

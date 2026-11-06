@@ -13,6 +13,7 @@ import { AnosLetivosPage } from "@/pages/AnosLetivos/AnosLetivosPage";
 import { DisciplinasPage } from "@/pages/Disciplinas/DisciplinasPage";
 import { AlocacoesPage } from "@/pages/Alocacoes/AlocacoesPage";
 import { MatriculasPage } from "@/pages/Matriculas/MatriculasPage";
+import { UsuariosPage } from "@/pages/Usuarios/UsuariosPage";
 
 export function AppRoutes() {
   return (
@@ -39,6 +40,7 @@ export function AppRoutes() {
           <Route path="/disciplinas" element={<DisciplinasPage />} />
           <Route path="/alocacoes" element={<AlocacoesPage />} />
           <Route path="/matriculas" element={<MatriculasPage />} />
+          <Route path="/usuarios" element={<UsuariosPage />} />
         </Route>
       </Route>
 
