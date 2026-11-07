@@ -207,10 +207,3 @@ npm run build        # build de produção
 
 A lista completa está na seção 8 do contrato da API.
 
----
-
-## Autor
-
-Desenvolvido por **[seu nome]** — Trabalho de Conclusão de Curso de **[curso]**, **[instituição]**, 2026.
-
-GitHub: [@JoaoRodriguesqtw](https://github.com/JoaoRodriguesqtw)
