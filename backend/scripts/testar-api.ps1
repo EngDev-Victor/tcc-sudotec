@@ -778,11 +778,19 @@ Write-Host "`n== Status das disciplinas ==" -ForegroundColor Cyan
 if ($anoId) {
   $dT = Req POST "/disciplinas" @{ nome = "Disc Status $sfx"; cargaHoraria = 60 } $tk
   Verificar "disciplina nasce ativa" ($dT.Status -eq 201 -and $dT.Dados.ativo -eq $true)
+  $nomeVariado = "DISC ST$([char]0x00C2)TUS $sfx"
+  $dupD = ReqErro POST "/disciplinas" @{ nome = $nomeVariado; cargaHoraria = 30 } $tk
+  Verificar "disciplina com nome repetido (maiusculas/acento) -> 409 com campo nome" ($dupD.Status -eq 409 -and @($dupD.Dados.campos) -contains "nome")
+  $renD = ReqErro PUT "/disciplinas/$($dp.Dados.id)" @{ nome = "disc status $sfx" } $tk
+  Verificar "renomear disciplina para nome existente -> 409" ($renD.Status -eq 409 -and @($renD.Dados.campos) -contains "nome")
+  Verificar "manter o proprio nome no PUT -> 200" ((Req PUT "/disciplinas/$($dp.Dados.id)" @{ nome = "DiscPrincipal $sfx" } $tk).Status -eq 200)
   $pT = Req POST "/professores" @{ nome = "Prof Disc $sfx"; email = "pdisc$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-6666"; titulacao = "GRADUACAO" } $tk
   $alT = Req POST "/alocacoes" @{ professorId = $pT.Dados.id; turmaId = $tid; disciplinaId = $dT.Dados.id } $tk
 
   $inD = Req PATCH "/disciplinas/$($dT.Dados.id)/ativo" @{ ativo = $false } $tk
   Verificar "inativar disciplina -> 200 e ativo=false" ($inD.Status -eq 200 -and $inD.Dados.ativo -eq $false)
+  $dupInat = ReqErro POST "/disciplinas" @{ nome = "Disc Status $sfx"; cargaHoraria = 30 } $tk
+  Verificar "nome de disciplina inativa tambem bloqueia -> 409" ($dupInat.Status -eq 409 -and [string]$dupInat.Dados.error -match "inativa")
   Verificar "inativar disciplina com valor invalido -> 400" ((Req PATCH "/disciplinas/$($dT.Dados.id)/ativo" @{ ativo = "sim" } $tk).Status -eq 400)
   Verificar "filtro ativo=false lista a disciplina" (@((Req GET "/disciplinas?ativo=false" $null $tk).Dados | Where-Object { $_.id -eq $dT.Dados.id }).Count -eq 1)
   Verificar "filtro ativo=true nao lista a disciplina" (@((Req GET "/disciplinas?ativo=true" $null $tk).Dados | Where-Object { $_.id -eq $dT.Dados.id }).Count -eq 0)

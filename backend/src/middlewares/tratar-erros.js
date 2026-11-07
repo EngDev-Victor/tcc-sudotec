@@ -52,6 +52,7 @@ export function tratarErros(error, req, res, next) {
   if (error.status) {
     const corpo = { error: error.message };
     if (error.detalhes) corpo.detalhes = error.detalhes;
+    if (error.campos) corpo.campos = error.campos; 
     return res.status(error.status).json(corpo);
   }
 

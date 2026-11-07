@@ -160,6 +160,7 @@ Conflitos de valor único (`409`) trazem `campos`, quando o campo pode ser ident
 | `["ano"]` | `Já existe um ano letivo com esse ano.` |
 | `["nome","anoLetivoId"]` | `Já existe uma turma com esse nome neste ano letivo.` |
 | `["professorId","turmaId","disciplinaId"]` | `Esse professor já está alocado nessa turma para essa disciplina.` |
+| `["nome"]` (disciplina) | `Já existe uma disciplina com esse nome.` ou `Já existe uma disciplina inativa com esse nome. Reative-a em vez de cadastrar outra.` |
 | campo não identificado | `Já existe um registro com esse valor único.` (sem `campos`) |
 
 ### 3.4 Rota inexistente
@@ -573,7 +574,7 @@ Objeto **Disciplina**:
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `nome` | texto | obrigatório, até 80 |
+| `nome` | texto | obrigatório, até 80. Único entre todas as disciplinas (ativas e inativas), sem diferenciar maiúsculas, minúsculas e acentos. Repetido → `409` com `campos: ["nome"]`. |
 | `cargaHoraria` | inteiro | obrigatório, 1 a 2000 |
 
 Disciplina inativa:
