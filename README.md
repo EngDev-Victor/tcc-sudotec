@@ -27,7 +27,8 @@ Principais regras de negócio (detalhadas no [contrato da API](backend/docs/CONT
 - um aluno tem no máximo **uma matrícula ativa por ano letivo**;
 - só se matricula em turma do **ano ativo ou de um ano futuro**;
 - transferências só entre turmas do **mesmo ano letivo**; a matrícula antiga fica como `TRANSFERIDA`;
-- o período do ano letivo precisa estar **dentro do próprio ano**.
+- o período do ano letivo precisa estar **dentro do próprio ano**;
+- o nome da disciplina é **único**, sem diferenciar maiúsculas, minúsculas e acentos (inclusive em relação às inativas).
 
 ---
 
@@ -43,6 +44,8 @@ Principais regras de negócio (detalhadas no [contrato da API](backend/docs/CONT
 
 ```
 Skolla/
+├── package.json         # workspaces (backend + frontend) e script para subir os dois
+├── validar-projeto.ps1  # validação completa: TypeScript, build e testes da API
 ├── backend/
 │   ├── docs/            # CONTRATO_API.md e MIGRATIONS.md
 │   ├── prisma/          # schema, migration inicial e seed do gestor
@@ -64,7 +67,7 @@ Skolla/
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) 20 LTS ou superior (com npm)
+- [Node.js](https://nodejs.org/) 20.19 ou superior (exigência do Prisma 7), com npm
 - Git
 - Windows PowerShell, para os scripts de teste e de dados de demonstração
 
@@ -72,11 +75,11 @@ Skolla/
 
 ```bash
 git clone https://github.com/JoaoRodriguesqtw/Skolla.git
-cd Skolla/backend
-npm install
-cd ../frontend
+cd Skolla
 npm install
 ```
+
+O repositório usa **npm workspaces**: um único `npm install` na raiz instala as dependências do back-end e do front-end (elas ficam em `Skolla/node_modules`).
 
 ### 2. Configurar o back-end
 
@@ -88,7 +91,7 @@ Copie `backend/.env.example` para `backend/.env` e preencha:
 | `JWT_SECRET` | um texto longo e aleatório | Assinatura do token (obrigatório) |
 | `JWT_EXPIRES_IN` | `8h` | Validade do login |
 | `PORT` | `3000` | Porta da API |
-| `CORS_ORIGIN` | `http://localhost:5173` | Endereço do front-end |
+| `CORS_ORIGIN` | `http://localhost:5173` | Endereço do front-end (opcional; esse é o padrão) |
 | `SEED_GESTOR_NOME` / `SEED_GESTOR_EMAIL` / `SEED_GESTOR_SENHA` | — | Gestor inicial criado pelo seed |
 
 ### 3. Criar o banco e o gestor inicial
@@ -110,16 +113,22 @@ VITE_API_URL=http://localhost:3000/api
 
 ### 5. Rodar
 
-Em dois terminais:
+Na raiz, um comando sobe os dois:
+
+```bash
+npm run dev          # API em http://localhost:3000 e sistema em http://localhost:5173
+```
+
+Ou, se preferir, em dois terminais:
 
 ```bash
 # terminal 1
 cd backend
-npm run dev          # API em http://localhost:3000
+npm run dev
 
 # terminal 2
 cd frontend
-npm run dev          # sistema em http://localhost:5173
+npm run dev
 ```
 
 Entre com o e-mail e a senha definidos em `SEED_GESTOR_EMAIL` e `SEED_GESTOR_SENHA`.
@@ -130,14 +139,14 @@ Entre com o e-mail e a senha definidos em `SEED_GESTOR_EMAIL` e `SEED_GESTOR_SEN
 
 O script `backend/scripts/popular-apresentacao.ps1` cria, **pela própria API**, uma escola de exemplo: anos letivos 2025 (encerrado), 2026 (ativo) e 2027 (futuro), turmas, disciplinas, professores, 24 alunos e matrículas com todos os status — incluindo um caso pronto de cada regra de negócio.
 
-Com o banco vazio e o back-end rodando:
+Com o banco recém-criado (só o gestor do seed) e o back-end rodando:
 
 ```powershell
 cd backend
 powershell -ExecutionPolicy Bypass -File .\scripts\popular-apresentacao.ps1
 ```
 
-Para voltar a base ao estado original (por exemplo, depois de um ensaio), pare o back-end e rode:
+Para voltar a base ao estado original (por exemplo, depois de um ensaio), pare o back-end e rode os comandos abaixo. **Atenção: o `migrate reset` apaga todos os dados do `dev.db`.** Use só numa base de demonstração; as regras de [migrations](backend/docs/MIGRATIONS.md) proíbem o reset em qualquer base com dados que precisam ser mantidos.
 
 ```powershell
 npx prisma migrate reset --force
@@ -158,14 +167,20 @@ Contas extras criadas pelo script (senha `Skolla@2026`):
 
 ## Testes
 
-O comportamento da API é verificado por um script com **246 verificações**, executado num banco de teste separado (o `dev.db` não é alterado):
+A validação completa roda, na raiz, a checagem de tipos e o build do front-end e os testes da API, e grava o resultado em `relatorio-validacao.txt`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\validar-projeto.ps1
+```
+
+Os testes da API (**250 verificações**) rodam num banco de teste separado (`backend/test.db`, API na porta 3001); o `dev.db` não é alterado. Para rodar só eles (com a porta 3001 livre):
 
 ```powershell
 cd backend
-.\scripts\testar-com-banco-teste.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\testar-com-banco-teste.ps1
 ```
 
-No front-end:
+Só o front-end:
 
 ```bash
 cd frontend
@@ -187,6 +202,7 @@ npm run build        # build de produção
 - Somente o módulo Gestor está implementado.
 - As contas de acesso ainda não são vinculadas aos cadastros de professores e alunos.
 - O status de matrícula `CONCLUIDA` existe, mas o encerramento automático do ano ainda não foi implementado.
+- O projeto roda localmente; não há deploy publicado.
 - O banco é SQLite, adequado ao desenvolvimento e à demonstração; para publicação, a recomendação é migrar para PostgreSQL.
 
 A lista completa está na seção 8 do contrato da API.
