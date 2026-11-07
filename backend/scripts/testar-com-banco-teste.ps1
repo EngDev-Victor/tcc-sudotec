@@ -1,4 +1,4 @@
-# Roda o testar-api.ps1 num banco de teste descartável (backend\test.db), sem tocar no dev.db.
+﻿# Roda o testar-api.ps1 num banco de teste descartável (backend\test.db), sem tocar no dev.db.
 #
 #   cd backend
 #   powershell -ExecutionPolicy Bypass -File .\scripts\testar-com-banco-teste.ps1

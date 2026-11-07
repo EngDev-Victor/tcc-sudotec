@@ -1,4 +1,4 @@
-# Uso normal:        .\scripts\testar-api.ps1                     (API na porta 3000, pede a senha)
+﻿# Uso normal:        .\scripts\testar-api.ps1                     (API na porta 3000, pede a senha)
 # Com banco de teste: .\scripts\testar-com-banco-teste.ps1      (chama este script na porta 3001)
 param(
   [string]$Api = "http://localhost:3000/api",
