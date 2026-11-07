@@ -784,6 +784,21 @@ if ($anoId) {
   $renD = ReqErro PUT "/disciplinas/$($dp.Dados.id)" @{ nome = "disc status $sfx" } $tk
   Verificar "renomear disciplina para nome existente -> 409" ($renD.Status -eq 409 -and @($renD.Dados.campos) -contains "nome")
   Verificar "manter o proprio nome no PUT -> 200" ((Req PUT "/disciplinas/$($dp.Dados.id)" @{ nome = "DiscPrincipal $sfx" } $tk).Status -eq 200)
+  Verificar "resposta da disciplina nao expoe nomeNormalizado" (-not ($dT.Dados.PSObject.Properties.Name -contains "nomeNormalizado"))
+
+  # Cadastros simultaneos do mesmo nome: o indice unico do banco deixa passar so 1
+  Add-Type -AssemblyName System.Net.Http
+  $clienteD = New-Object System.Net.Http.HttpClient
+  $clienteD.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $tk)
+  $jsonD = @{ nome = "Disc Concorrente $sfx"; cargaHoraria = 20 } | ConvertTo-Json
+  $tarefasD = [System.Threading.Tasks.Task[]]@(1..10 | ForEach-Object {
+    $clienteD.PostAsync("$Api/disciplinas", (New-Object System.Net.Http.StringContent($jsonD, [Text.Encoding]::UTF8, "application/json")))
+  })
+  [System.Threading.Tasks.Task]::WaitAll($tarefasD)
+  $codigosD = @($tarefasD | ForEach-Object { [int]$_.Result.StatusCode })
+  $clienteD.Dispose()
+  Verificar "10 disciplinas simultaneas com o mesmo nome: so 1 aceita (201) e 9 recusadas (409)" ((@($codigosD | Where-Object { $_ -eq 201 }).Count -eq 1) -and (@($codigosD | Where-Object { $_ -eq 409 }).Count -eq 9))
+  if (@($codigosD | Where-Object { $_ -eq 201 }).Count -ne 1) { Write-Host "  codigos recebidos: $($codigosD -join ', ')" -ForegroundColor Yellow }
   $pT = Req POST "/professores" @{ nome = "Prof Disc $sfx"; email = "pdisc$sfx@teste.com"; especialidade = "Teste"; telefone = "(46) 3555-6666"; titulacao = "GRADUACAO" } $tk
   $alT = Req POST "/alocacoes" @{ professorId = $pT.Dados.id; turmaId = $tid; disciplinaId = $dT.Dados.id } $tk
 

@@ -574,7 +574,7 @@ Objeto **Disciplina**:
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `nome` | texto | obrigatório, até 80. Único entre todas as disciplinas (ativas e inativas), sem diferenciar maiúsculas, minúsculas e acentos. Repetido → `409` com `campos: ["nome"]`. |
+| `nome` | texto | obrigatório, até 80. Único entre todas as disciplinas (ativas e inativas), sem diferenciar maiúsculas, minúsculas e acentos. Repetido → `409` com `campos: ["nome"]`. Garantido também pelo banco (índice único sobre o nome normalizado), inclusive com pedidos simultâneos. |
 | `cargaHoraria` | inteiro | obrigatório, 1 a 2000 |
 
 Disciplina inativa:
@@ -780,6 +780,7 @@ Não existe `DELETE /matriculas/:id`: a resposta é `404` de rota inexistente.
 - **Deploy atrás de proxy** (Render, Vercel): falta `app.set('trust proxy', 1)`. Sem isso, o limite de login enxerga o IP do proxy e não o do usuário.
 - **Contador do limite de login em memória**: zera ao reiniciar e não é compartilhado entre várias instâncias do servidor.
 - **Vínculo usuário ↔ aluno/professor**: os campos `usuarioId` existem no banco, mas nenhuma rota os define ainda. Hoje as contas de acesso são independentes dos cadastros.
+- **Nome normalizado das disciplinas**: a coluna interna `nomeNormalizado` (não aparece nas respostas) guarda o nome sem acentos e em minúsculas, com índice único. Ela é opcional no banco: disciplinas criadas antes de 07/11/2026 são preenchidas pelo `scripts/preencher-nome-normalizado.js`, e a API ainda confere essas antigas pelo nome enquanto estiverem vazias.
 - **`CONCLUIDA`**: o status existe, mas nenhuma rota encerra matrículas como concluídas (por exemplo, no fim do ano letivo).
 - **Regra "uma matrícula `ATIVA` por ano" protegida só pela aplicação**: no SQLite, a transação atual garante a regra mesmo com pedidos simultâneos. Na migração para o **PostgreSQL**, é obrigatório reforçá-la no banco: um índice único parcial (aluno + ano letivo onde `status = 'ATIVA'`), o que exige guardar o `anoLetivoId` também na matrícula.
 - **Migrations**: em 05/11/2026, as 6 migrations do desenvolvimento foram consolidadas numa única migration inicial (`20261105100000_inicial`), conferida contra o `dev.db` (mesma estrutura e mesmos dados). Novas migrations seguem as regras de `docs/MIGRATIONS.md`, que exigem coluna obrigatória nova com valor padrão ou criada em etapas.

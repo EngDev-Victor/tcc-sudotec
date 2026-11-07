@@ -95,6 +95,8 @@ model Professor {
 model Disciplina {
   id                    Int                      @id @default(autoincrement())
   nome                  String
+  // nome sem acentos, minúsculo e sem espaços extras; único no banco (ver entidades.js)
+  nomeNormalizado       String?                  @unique
   cargaHoraria          Int
   ativo                 Boolean                  @default(true)
   alocacoes             AlocacaoProfessorTurma[]

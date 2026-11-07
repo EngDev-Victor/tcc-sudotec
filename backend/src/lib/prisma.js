@@ -4,4 +4,8 @@ import { PrismaClient } from '../generated/prisma/client.ts';
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL });
 
-export const prisma = new PrismaClient({ adapter });
+// nomeNormalizado é uso interno da regra de nome único: não sai nas respostas da API
+export const prisma = new PrismaClient({
+  adapter,
+  omit: { disciplina: { nomeNormalizado: true } },
+});

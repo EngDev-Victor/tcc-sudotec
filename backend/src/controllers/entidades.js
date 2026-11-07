@@ -24,26 +24,49 @@ const disciplinaBase = criarCrudController("disciplina", {
   ],
 });
 
-// Nome único entre todas as disciplinas, ativas e inativas,
-// sem diferenciar maiúsculas, minúsculas, acentos e espaços extras
-async function exigirNomeDisponivel(nome, idAtual) {
-  if (nome === undefined) return;
-  const alvo = normalizarTexto(nome);
-  const todas = await prisma.disciplina.findMany({
-    select: { id: true, nome: true, ativo: true },
-  });
-  const existente = todas.find(
-    (d) => d.id !== idAtual && normalizarTexto(d.nome) === alvo,
+// Nome único entre todas as disciplinas, ativas e inativas, sem diferenciar
+// maiúsculas, minúsculas, acentos e espaços extras. A coluna nomeNormalizado
+// tem índice único no banco: a consulta abaixo dá a mensagem certa, e o banco
+// garante a regra mesmo com cadastros simultâneos.
+function conflitoDeNome(ativa) {
+  return new ErroHttp(
+    409,
+    ativa
+      ? "Já existe uma disciplina com esse nome."
+      : "Já existe uma disciplina inativa com esse nome. Reative-a em vez de cadastrar outra.",
+    undefined,
+    ["nome"],
   );
-  if (existente) {
-    throw new ErroHttp(
-      409,
-      existente.ativo
-        ? "Já existe uma disciplina com esse nome."
-        : "Já existe uma disciplina inativa com esse nome. Reative-a em vez de cadastrar outra.",
-      undefined,
-      ["nome"],
-    );
+}
+
+// Devolve o nome normalizado, ou lança 409 se ele já estiver em uso
+async function exigirNomeDisponivel(nome, idAtual) {
+  const alvo = normalizarTexto(nome);
+  let existente = await prisma.disciplina.findUnique({
+    where: { nomeNormalizado: alvo },
+    select: { id: true, ativo: true },
+  });
+  if (!existente) {
+    // Disciplinas antigas, ainda sem nomeNormalizado (antes do script de preenchimento)
+    const antigas = await prisma.disciplina.findMany({
+      where: { nomeNormalizado: null },
+      select: { id: true, nome: true, ativo: true },
+    });
+    existente = antigas.find((d) => normalizarTexto(d.nome) === alvo) ?? null;
+  }
+  if (existente && existente.id !== idAtual) {
+    throw conflitoDeNome(existente.ativo);
+  }
+  return alvo;
+}
+
+// Outro pedido gravou o mesmo nome entre a consulta e a gravação: o índice único recusa
+async function gravarComNomeUnico(gravar) {
+  try {
+    return await gravar();
+  } catch (error) {
+    if (error.code === "P2002") throw conflitoDeNome(true);
+    throw error;
   }
 }
 
@@ -51,13 +74,29 @@ export const disciplinaController = {
   ...disciplinaBase,
 
   async criar(req, res) {
-    await exigirNomeDisponivel(req.body.nome);
-    return disciplinaBase.criar(req, res);
+    const { nome, cargaHoraria } = req.body;
+    const nomeNormalizado = await exigirNomeDisponivel(nome);
+    const disciplina = await gravarComNomeUnico(() =>
+      prisma.disciplina.create({
+        data: { nome, cargaHoraria, nomeNormalizado },
+      }),
+    );
+    return res.status(201).json(disciplina);
   },
 
   async atualizar(req, res) {
-    await exigirNomeDisponivel(req.body.nome, lerId(req.params.id));
-    return disciplinaBase.atualizar(req, res);
+    const id = lerId(req.params.id);
+    const { nome, cargaHoraria } = req.body;
+    const data = {};
+    if (nome !== undefined) {
+      data.nome = nome;
+      data.nomeNormalizado = await exigirNomeDisponivel(nome, id);
+    }
+    if (cargaHoraria !== undefined) data.cargaHoraria = cargaHoraria;
+    const disciplina = await gravarComNomeUnico(() =>
+      prisma.disciplina.update({ where: { id }, data }),
+    );
+    return res.json(disciplina);
   },
 
   // GET /disciplinas?ativo=

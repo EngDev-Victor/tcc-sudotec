@@ -6,6 +6,8 @@ O schema do banco é mudado só por migrations do Prisma (`backend/prisma/migrat
 
 Em 05/11/2026, as 6 migrations do desenvolvimento foram consolidadas numa única migration inicial (`20261105100000_inicial`), gerada a partir do `schema.prisma`. As antigas adicionavam colunas obrigatórias sem valor padrão e falhavam em bancos que já tinham registros. A consolidação foi feita antes do primeiro deploy, quando ainda não havia dados de produção.
 
+Em 07/11/2026, a migration `disciplina_nome_normalizado` acrescentou a coluna opcional `Disciplina.nomeNormalizado` com índice único. Bancos com disciplinas criadas antes dela precisam rodar, uma vez, `npx tsx scripts/preencher-nome-normalizado.js`.
+
 **Depois do primeiro deploy, não se consolida mais.** A partir daí, valem as regras abaixo.
 
 ## Regras
