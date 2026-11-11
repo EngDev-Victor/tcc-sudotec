@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/Modal";
@@ -37,10 +37,14 @@ export function AlocacaoFormModal({
   const [form, setForm] = useState<Form>({ turmaId: "", professorId: "", disciplinaId: "" });
   const [erros, setErros] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
+  // true enquanto a disciplina foi preenchida pelo sistema (disciplina principal do professor);
+  // vira false quando o gestor escolhe a disciplina à mão
+  const disciplinaSugerida = useRef(false);
 
   useEffect(() => {
     if (!aberto) return;
     setErros({});
+    disciplinaSugerida.current = false;
     setForm(
       alocacao
         ? {
@@ -53,17 +57,22 @@ export function AlocacaoFormModal({
   }, [aberto, alocacao, turmaPadraoId]);
 
   const set = (campo: keyof Form, valor: string) => {
-    setForm((f) => {
-      const novo = { ...f, [campo]: valor };
-      // Ao escolher o professor numa alocação nova, sugere a disciplina principal dele
-      if (campo === "professorId" && !editando && !f.disciplinaId) {
-        const p = professores.find((x) => String(x.id) === valor);
-        if (p?.disciplinaPrincipalId && disciplinas.some((d) => d.id === p.disciplinaPrincipalId))
-          novo.disciplinaId = String(p.disciplinaPrincipalId);
-      }
-      return novo;
-    });
-    setErros((e) => ({ ...e, [campo]: "" }));
+    const novo = { ...form, [campo]: valor };
+    // Ao escolher (ou trocar) o professor numa alocação nova, sugere a disciplina principal dele.
+    // Só troca a disciplina se ela estiver vazia ou tiver sido sugerida antes;
+    // uma disciplina escolhida à mão pelo gestor é mantida.
+    if (campo === "professorId" && !editando && (!form.disciplinaId || disciplinaSugerida.current)) {
+      const p = professores.find((x) => String(x.id) === valor);
+      const principal =
+        p?.disciplinaPrincipalId && disciplinas.some((d) => d.id === p.disciplinaPrincipalId)
+          ? String(p.disciplinaPrincipalId)
+          : "";
+      novo.disciplinaId = principal;
+      disciplinaSugerida.current = principal !== "";
+    }
+    if (campo === "disciplinaId") disciplinaSugerida.current = false;
+    setForm(novo);
+    setErros((e) => ({ ...e, [campo]: "", ...(novo.disciplinaId !== form.disciplinaId ? { disciplinaId: "" } : {}) }));
   };
 
   // Na edição, mantém na lista o professor/disciplina atuais mesmo se estiverem inativos
