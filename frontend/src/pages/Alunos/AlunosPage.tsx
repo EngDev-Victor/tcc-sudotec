@@ -13,9 +13,10 @@ import { SearchInput } from "@/components/SearchInput";
 import { BTN_ICONE, BTN_PRIMARIO } from "@/components/estilos";
 import { useDebounce } from "@/hooks/useDebounce";
 import { inativarAluno, listarAlunos, reativarAluno } from "@/services/alunos";
+import { listarAnosLetivos } from "@/services/anosLetivos";
 import { listarTurmas } from "@/services/turmas";
 import type { Paginado } from "@/types/api";
-import type { Aluno, AlunoReativado, Turma } from "@/types/entidades";
+import type { Aluno, AlunoReativado, AnoLetivoListagem, Turma } from "@/types/entidades";
 import { mensagemDeErro } from "@/utils/erros";
 import { formatarCPF, formatarTelefone } from "@/utils/formatacao";
 import { ResultadoReativacaoModal } from "@/pages/Alunos/ResultadoReativacaoModal";
@@ -29,6 +30,8 @@ export function AlunosPage() {
   const [busca, setBusca] = useState("");
   const buscaAtrasada = useDebounce(busca.trim());
   const [situacao, setSituacao] = useState<Situacao>("ativas");
+  const [anos, setAnos] = useState<AnoLetivoListagem[]>([]);
+  const [anoId, setAnoId] = useState(""); // "" = todos os anos
   const [turmaId, setTurmaId] = useState("");
   const [pagina, setPagina] = useState(1);
 
@@ -55,10 +58,33 @@ export function AlunosPage() {
       .catch(() => setTurmas([]));
   }, []);
 
+  // Anos letivos para o filtro (começa em "Todos os anos", para listar também quem não tem matrícula)
+  useEffect(() => {
+    listarAnosLetivos()
+      .then(setAnos)
+      .catch(() => setAnos([]));
+  }, []);
+
+  // Turmas do ano escolhido no filtro (em ordem de nome)
+  const turmasDoAno = useMemo(
+    () =>
+      anoId
+        ? turmas
+            .filter((t) => t.anoLetivoId === Number(anoId))
+            .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { numeric: true }))
+        : [],
+    [turmas, anoId],
+  );
+
+  function escolherAno(valor: string) {
+    setAnoId(valor);
+    setTurmaId(""); // a turma escolhida pode não ser do novo ano
+  }
+
   // Volta para a página 1 quando um filtro muda
   useEffect(() => {
     setPagina(1);
-  }, [buscaAtrasada, situacao, turmaId]);
+  }, [buscaAtrasada, situacao, anoId, turmaId]);
 
   // Só a resposta da última consulta é usada (evita uma resposta antiga sobrescrever a nova)
   const consultaAtual = useRef(0);
@@ -72,6 +98,7 @@ export function AlunosPage() {
         busca: buscaAtrasada || undefined,
         ativo: situacaoParaAtivo(situacao),
         turmaId: turmaId ? Number(turmaId) : undefined,
+        anoLetivoId: anoId ? Number(anoId) : undefined,
         pagina,
         limite: LIMITE,
       });
@@ -81,7 +108,7 @@ export function AlunosPage() {
     } finally {
       if (consulta === consultaAtual.current) setCarregando(false);
     }
-  }, [buscaAtrasada, situacao, turmaId, pagina]);
+  }, [buscaAtrasada, situacao, anoId, turmaId, pagina]);
 
   useEffect(() => {
     carregar();
@@ -164,16 +191,32 @@ export function AlunosPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <SearchInput value={busca} onChange={setBusca} placeholder="Buscar pelo nome..." />
             <select
+              value={anoId}
+              onChange={(e) => escolherAno(e.target.value)}
+              className="px-3 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0D2C3A]/20 focus:border-[#0D2C3A] max-w-56"
+              aria-label="Ano letivo"
+              title="Mostra só alunos com matrícula ativa numa turma desse ano letivo"
+            >
+              <option value="">Todos os anos</option>
+              {anos.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.ano}
+                  {a.ativo ? " (ativo)" : ""}
+                </option>
+              ))}
+            </select>
+            <select
               value={turmaId}
               onChange={(e) => setTurmaId(e.target.value)}
-              className="px-3 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0D2C3A]/20 focus:border-[#0D2C3A] max-w-56"
-              title="Mostra só alunos com matrícula ativa na turma"
+              className="px-3 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0D2C3A]/20 focus:border-[#0D2C3A] max-w-56 disabled:opacity-60 disabled:cursor-not-allowed"
+              aria-label="Turma"
+              disabled={!anoId}
+              title={anoId ? "Mostra só alunos com matrícula ativa na turma" : "Escolha um ano letivo para filtrar por turma"}
             >
               <option value="">Todas as turmas</option>
-              {turmas.map((t) => (
+              {turmasDoAno.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.nome}
-                  {t.anoLetivo ? ` • ${t.anoLetivo.ano}` : ""}
                 </option>
               ))}
             </select>

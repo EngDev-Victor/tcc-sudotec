@@ -439,7 +439,10 @@ Objeto **Aluno**:
 | `busca` | trecho do nome, sem acento (ver 2.5) |
 | `ativo` | `true` / `false` |
 | `turmaId` | só alunos com matrícula **ATIVA** nessa turma |
+| `anoLetivoId` | só alunos com matrícula **ATIVA** numa turma desse ano letivo |
 | `pagina`, `limite` | ver 2.4 |
+
+`turmaId` e `anoLetivoId` juntos valem para a **mesma** matrícula. Alunos inativos não têm matrícula `ATIVA` (as deles ficam `SUSPENSA`), então não aparecem nesses dois filtros.
 
 #### `GET /alunos/:id` → Aluno
 

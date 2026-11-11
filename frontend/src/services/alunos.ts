@@ -18,6 +18,8 @@ export type FiltrosAlunos = ParametrosPaginacao & {
   ativo?: boolean;
   /** Só alunos com matrícula ATIVA nessa turma */
   turmaId?: number;
+  /** Só alunos com matrícula ATIVA numa turma desse ano letivo */
+  anoLetivoId?: number;
 };
 
 /** GET /alunos — paginado, ordem alfabética */

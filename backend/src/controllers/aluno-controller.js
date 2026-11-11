@@ -10,17 +10,22 @@ const base = criarCrudController('aluno', {
 export const alunoController = {
   ...base,
 
-  // GET /alunos?busca=&ativo=&turmaId=&pagina=&limite=
+  // GET /alunos?busca=&ativo=&turmaId=&anoLetivoId=&pagina=&limite=
   async listar(req, res) {
     const paginacao = lerPaginacao(req.query);
     const busca = lerBusca(req.query.busca);
     const ativo = lerBooleano(req.query.ativo, 'ativo');
     const turmaId = lerIdQuery(req.query.turmaId, 'turmaId');
+    const anoLetivoId = lerIdQuery(req.query.anoLetivoId, 'anoLetivoId');
 
     const where = {};
     if (ativo !== undefined) where.ativo = ativo;
-    if (turmaId !== undefined) {
-      where.matriculas = { some: { turmaId, status: 'ATIVA' } };
+    // turmaId e anoLetivoId valem para a mesma matrícula ATIVA
+    if (turmaId !== undefined || anoLetivoId !== undefined) {
+      const matricula = { status: 'ATIVA' };
+      if (turmaId !== undefined) matricula.turmaId = turmaId;
+      if (anoLetivoId !== undefined) matricula.turma = { anoLetivoId };
+      where.matriculas = { some: matricula };
     }
 
     const resposta = await listarPaginado({ delegate: prisma.aluno, where, busca, paginacao });

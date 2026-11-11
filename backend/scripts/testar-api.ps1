@@ -479,6 +479,9 @@ if ($anoId) {
   Req POST "/matriculas" @{ alunoId = $criados[0].id; turmaId = $tid } $tk | Out-Null
   Req POST "/matriculas" @{ alunoId = $criados[2].id; turmaId = $tid } $tk | Out-Null
   Verificar "alunos: filtro por turma (matricula ativa) (2)" ((Req GET "/alunos?turmaId=$tid&busca=$qTok" $null $tk).Dados.paginacao.total -eq 2)
+  Verificar "alunos: filtro por ano letivo (matricula ativa no ano) (2)" ((Req GET "/alunos?anoLetivoId=$anoId&busca=$qTok" $null $tk).Dados.paginacao.total -eq 2)
+  Verificar "alunos: ano letivo sem matriculas -> lista vazia (0)" ((Req GET "/alunos?anoLetivoId=999999&busca=$qTok" $null $tk).Dados.paginacao.total -eq 0)
+  Verificar "alunos: anoLetivoId invalido -> 400" ((Req GET "/alunos?anoLetivoId=abc" $null $tk).Status -eq 400)
 
   # Parametros invalidos
   Verificar "limite 0 -> 400" ((Req GET "/alunos?limite=0" $null $tk).Status -eq 400)
