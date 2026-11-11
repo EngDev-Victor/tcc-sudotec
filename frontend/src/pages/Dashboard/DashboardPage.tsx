@@ -317,7 +317,8 @@ function Pendencias({ dados }: { dados: DashboardComAno }) {
                 {alunosSemMatriculaAtiva.itens.slice(0, 5).map((a) => (
                   <button
                     key={a.id}
-                    onClick={() => navigate(`/alunos/${a.id}/editar`)}
+                    onClick={() => navigate(`/matriculas?alunoId=${a.id}`)}
+                    title="Ver as matrículas do aluno"
                     className="w-full flex items-center gap-3 text-left rounded-lg hover:bg-[#F8FAFB] transition-colors"
                   >
                     <AvatarIcon name={a.nome} size="sm" />
